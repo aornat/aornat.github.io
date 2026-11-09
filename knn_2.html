@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>K-NN Demo</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        #knnCanvas {
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-4 sm:p-6 selection:bg-indigo-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="max-w-6xl mx-auto w-full flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+            <span class="text-xs font-bold px-2.5 py-1 rounded-md bg-indigo-500/20 text-indigo-400 border border-indigo-500/30">K-NN Demo</span>
+            <h1 class="text-base font-bold text-white tracking-tight">Collaborative Filtering (User-User Recommendation)</h1>
+        </div>
+
+        <!-- Presets & Actions -->
+        <div class="flex items-center gap-2">
+            <button onclick="loadPreset('standard')" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition border border-slate-700">
+                Movie Ratings Dataset
+            </button>
+            <button onclick="loadPreset('mixed')" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition border border-slate-700">
+                Mixed Preferences
+            </button>
+            <button onclick="clearPoints()" class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition border border-rose-500/20 ml-2" title="Clear canvas data">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="max-w-6xl mx-auto w-full flex-grow my-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+        <!-- Left Column: Canvas & Controls (7 cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-3">
+            <div class="glass-panel p-4 rounded-2xl relative shadow-xl">
+                
+                <!-- Canvas Container -->
+                <div class="relative w-full aspect-[4/3]">
+                    <canvas id="knnCanvas" class="w-full h-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+                </div>
+
+                <!-- Canvas Options & Mode Toggle -->
+                <div class="flex flex-wrap items-center justify-between pt-3 text-xs text-slate-400 gap-3">
+                    <div class="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+                        <span class="text-[11px] font-semibold text-slate-400 px-1.5">Add:</span>
+                        <button id="modeQuery" onclick="setAddMode('query')" class="px-2 py-1 rounded-lg text-xs font-semibold bg-amber-500 text-slate-950 shadow transition flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-slate-950 inline-block"></span> Target User
+                        </button>
+                        <button id="modeLiked" onclick="setAddMode('liked')" class="px-2 py-1 rounded-lg text-xs font-medium text-emerald-400 hover:bg-slate-800 transition flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> Liked Item
+                        </button>
+                        <button id="modeDisliked" onclick="setAddMode('disliked')" class="px-2 py-1 rounded-lg text-xs font-medium text-rose-400 hover:bg-slate-800 transition flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-rose-400 inline-block"></span> Disliked Item
+                        </button>
+                    </div>
+
+                    <label class="flex items-center gap-1.5 cursor-pointer select-none hover:text-slate-200">
+                        <input type="checkbox" id="boundaryToggle" checked onchange="redrawCanvas()" class="w-4 h-4 accent-indigo-500 rounded">
+                        <span>Recommendation Regions</span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Parameters & Recommendation Metrics (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+
+            <!-- Hyperparameter Box -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Similar Users Count</span>
+                    <span id="kBadge" class="font-mono font-bold text-sm text-indigo-400 bg-indigo-500/10 px-2.5 py-0.5 rounded-lg border border-indigo-500/20">
+                        K = <span id="kValDisplay">3</span>
+                    </span>
+                </div>
+
+                <div class="flex flex-col gap-2 pt-1">
+                    <div class="flex justify-between text-xs text-slate-400 font-medium">
+                        <span>Neighbors (K):</span>
+                        <span class="text-slate-300">Top K similar user profiles</span>
+                    </div>
+                    <input type="range" id="kSlider" min="1" max="9" step="2" value="3" oninput="updateK(this.value)" class="w-full accent-indigo-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                        <span>1</span><span>3</span><span>5</span><span>7</span><span>9</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommendation Result Card -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col gap-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <i data-lucide="film" class="w-4 h-4 text-indigo-400"></i> Recommendation Engine Output
+                </div>
+
+                <!-- Recommendation Banner -->
+                <div id="recommendationCard" class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between">
+                    <div>
+                        <span class="text-[10px] text-slate-500 uppercase font-bold block">Decision</span>
+                        <span id="recDecisionLabel" class="text-lg font-bold text-emerald-400">RECOMMEND</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-500 uppercase font-bold block">Match Confidence</span>
+                        <span id="recConfidenceLabel" class="text-lg font-mono font-bold text-slate-200">100%</span>
+                    </div>
+                </div>
+
+                <!-- User Similarity Voting Breakdown -->
+                <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex flex-col gap-2">
+                    <div class="flex justify-between text-xs">
+                        <span class="text-slate-400 font-medium">Neighbor User Votes:</span>
+                        <span id="voteRatioLabel" class="font-mono text-xs font-bold text-slate-300">3 / 3 Liked</span>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="w-full bg-rose-500/80 h-2.5 rounded-full overflow-hidden flex border border-slate-800">
+                        <div id="likedVoteBar" class="bg-emerald-500 h-full transition-all duration-300" style="width: 100%;"></div>
+                    </div>
+
+                    <div class="flex justify-between text-[11px] font-medium pt-0.5">
+                        <span class="text-emerald-400 flex items-center gap-1">● Liked Item: <span id="likedCountText">3</span></span>
+                        <span class="text-rose-400 flex items-center gap-1">● Disliked Item: <span id="dislikedCountText">0</span></span>
+                    </div>
+                </div>
+
+                <!-- Nearest Neighbors Distance Table -->
+                <div class="bg-slate-900/50 p-3 rounded-xl border border-slate-800 flex flex-col gap-2">
+                    <span class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Top Similar Profiles (Euclidean Distance)</span>
+                    <div id="neighborList" class="flex flex-col gap-1 max-h-[110px] overflow-y-auto text-xs font-mono">
+                        <!-- Filled dynamically -->
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        let userProfiles = [];
+        let targetUser = { x: 7.5, y: 2.0 }; // Target user preferences
+        let kValue = 3;
+        let addMode = 'query'; // 'query', 'liked', 'disliked'
+        let draggedPointIndex = null;
+        let isDraggingTarget = false;
+
+        const canvas = document.getElementById('knnCanvas');
+        const ctx = canvas.getContext('2d');
+
+        window.onload = function() {
+            lucide.createIcons();
+            resizeCanvas();
+            window.addEventListener('resize', () => { resizeCanvas(); redrawCanvas(); });
+
+            canvas.addEventListener('mousedown', handlePointerDown);
+            canvas.addEventListener('mousemove', handlePointerMove);
+            canvas.addEventListener('mouseup', handlePointerUp);
+            canvas.addEventListener('contextmenu', handleRightClick);
+
+            // Touch Support
+            canvas.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                handlePointerDown(new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY }));
+            }, {passive: false});
+
+            canvas.addEventListener('touchmove', (e) => {
+                const touch = e.touches[0];
+                handlePointerMove(new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY }));
+            }, {passive: false});
+
+            canvas.addEventListener('touchend', () => handlePointerUp());
+
+            loadPreset('standard');
+        };
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+
+        function setAddMode(mode) {
+            addMode = mode;
+            ['Query', 'Liked', 'Disliked'].forEach(m => {
+                const btn = document.getElementById(`mode${m}`);
+                if (m.toLowerCase() === mode) {
+                    btn.className = `px-2 py-1 rounded-lg text-xs font-semibold shadow transition flex items-center gap-1 ${
+                        mode === 'query' ? 'bg-amber-500 text-slate-950' : 
+                        mode === 'liked' ? 'bg-emerald-500 text-slate-950' : 'bg-rose-500 text-slate-950'
+                    }`;
+                } else {
+                    btn.className = `px-2 py-1 rounded-lg text-xs font-medium hover:bg-slate-800 transition flex items-center gap-1 ${
+                        m === 'Liked' ? 'text-emerald-400' : m === 'Disliked' ? 'text-rose-400' : 'text-amber-400'
+                    }`;
+                }
+            });
+        }
+
+        function updateK(val) {
+            kValue = parseInt(val, 10);
+            document.getElementById('kValDisplay').innerText = kValue;
+            redrawCanvas();
+        }
+
+        function loadPreset(type) {
+            if (type === 'standard') {
+                userProfiles = [
+                    // Action Fans (Liked target Action movie)
+                    { x: 8.0, y: 2.0, opinion: 'Liked', id: 'User A' },
+                    { x: 9.0, y: 1.5, opinion: 'Liked', id: 'User B' },
+                    { x: 7.0, y: 3.0, opinion: 'Liked', id: 'User C' },
+                    { x: 8.5, y: 3.5, opinion: 'Liked', id: 'User D' },
+                    { x: 6.5, y: 1.5, opinion: 'Liked', id: 'User E' },
+                    // Drama Fans (Disliked target Action movie)
+                    { x: 2.0, y: 8.5, opinion: 'Disliked', id: 'User F' },
+                    { x: 1.5, y: 7.0, opinion: 'Disliked', id: 'User G' },
+                    { x: 3.0, y: 9.0, opinion: 'Disliked', id: 'User H' },
+                    { x: 2.5, y: 6.5, opinion: 'Disliked', id: 'User I' },
+                    { x: 4.0, y: 8.0, opinion: 'Disliked', id: 'User J' }
+                ];
+                targetUser = { x: 7.5, y: 2.0 };
+            } else {
+                userProfiles = [
+                    { x: 5.0, y: 5.0, opinion: 'Liked', id: 'User A' },
+                    { x: 6.0, y: 4.5, opinion: 'Liked', id: 'User B' },
+                    { x: 4.0, y: 6.0, opinion: 'Disliked', id: 'User C' },
+                    { x: 7.0, y: 7.0, opinion: 'Disliked', id: 'User D' },
+                    { x: 3.0, y: 3.0, opinion: 'Liked', id: 'User E' },
+                    { x: 8.0, y: 2.0, opinion: 'Liked', id: 'User F' },
+                    { x: 2.0, y: 8.0, opinion: 'Disliked', id: 'User G' }
+                ];
+                targetUser = { x: 5.2, y: 5.5 };
+            }
+            redrawCanvas();
+        }
+
+        function valToPxX(val) {
+            const rect = canvas.getBoundingClientRect();
+            const padLeft = 55, padRight = 20;
+            return padLeft + (val / 10.0) * (rect.width - padLeft - padRight);
+        }
+
+        function valToPxY(val) {
+            const rect = canvas.getBoundingClientRect();
+            const padTop = 20, padBottom = 40;
+            return rect.height - padBottom - (val / 10.0) * (rect.height - padTop - padBottom);
+        }
+
+        function pxToValX(px) {
+            const rect = canvas.getBoundingClientRect();
+            const padLeft = 55, padRight = 20;
+            const val = ((px - padLeft) / (rect.width - padLeft - padRight)) * 10.0;
+            return Math.max(0, Math.min(10.0, val));
+        }
+
+        function pxToValY(py) {
+            const rect = canvas.getBoundingClientRect();
+            const padTop = 20, padBottom = 40;
+            const val = ((rect.height - padBottom - py) / (rect.height - padTop - padBottom)) * 10.0;
+            return Math.max(0, Math.min(10.0, val));
+        }
+
+        function computeKNN(target, k) {
+            if (userProfiles.length === 0) return { neighbors: [], likedCount: 0, dislikedCount: 0, recommendation: 'N/A', confidence: 0 };
+
+            const distances = userProfiles.map(u => {
+                const dx = u.x - target.x;
+                const dy = u.y - target.y;
+                return { user: u, dist: Math.sqrt(dx * dx + dy * dy) };
+            });
+
+            distances.sort((a, b) => a.dist - b.dist);
+            const actualK = Math.min(k, distances.length);
+            const nearest = distances.slice(0, actualK);
+
+            let likedCount = 0;
+            let dislikedCount = 0;
+            nearest.forEach(n => {
+                if (n.user.opinion === 'Liked') likedCount++;
+                else dislikedCount++;
+            });
+
+            const recommendation = likedCount >= dislikedCount ? 'Recommend' : 'Do Not Recommend';
+            const winningVotes = Math.max(likedCount, dislikedCount);
+            const confidence = actualK > 0 ? (winningVotes / actualK) : 0;
+
+            return { neighbors: nearest, likedCount, dislikedCount, actualK, recommendation, confidence };
+        }
+
+        function drawDecisionBoundary() {
+            const rect = canvas.getBoundingClientRect();
+            const step = 8;
+            const padLeft = 55, padRight = 20, padTop = 20, padBottom = 40;
+
+            for (let px = padLeft; px < rect.width - padRight; px += step) {
+                for (let py = padTop; py < rect.height - padBottom; py += step) {
+                    const gridX = pxToValX(px);
+                    const gridY = pxToValY(py);
+
+                    const result = computeKNN({ x: gridX, y: gridY }, kValue);
+                    if (result.recommendation !== 'N/A') {
+                        ctx.fillStyle = result.recommendation === 'Recommend' 
+                            ? 'rgba(16, 185, 129, 0.08)' 
+                            : 'rgba(244, 63, 94, 0.08)';
+                        ctx.fillRect(px, py - step, step, step);
+                    }
+                }
+            }
+        }
+
+        function redrawCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            // 1. Draw Decision Regions
+            if (document.getElementById('boundaryToggle').checked && userProfiles.length > 0) {
+                drawDecisionBoundary();
+            }
+
+            // 2. Draw Grid & Axes
+            drawAxesAndGrid(rect);
+
+            // 3. Compute KNN
+            const knnResult = computeKNN(targetUser, kValue);
+
+            // 4. Draw Lines to K Nearest User Profiles
+            if (userProfiles.length > 0) {
+                const tPxX = valToPxX(targetUser.x);
+                const tPxY = valToPxY(targetUser.y);
+
+                knnResult.neighbors.forEach(n => {
+                    const uPxX = valToPxX(n.user.x);
+                    const uPxY = valToPxY(n.user.y);
+
+                    ctx.save();
+                    ctx.beginPath();
+                    ctx.moveTo(tPxX, tPxY);
+                    ctx.lineTo(uPxX, uPxY);
+                    ctx.strokeStyle = n.user.opinion === 'Liked' ? '#10b981' : '#f43f5e';
+                    ctx.lineWidth = 2;
+                    ctx.setLineDash([4, 4]);
+                    ctx.stroke();
+
+                    // Halo ring for nearest neighbors
+                    ctx.beginPath();
+                    ctx.arc(uPxX, uPxY, 12, 0, Math.PI * 2);
+                    ctx.strokeStyle = n.user.opinion === 'Liked' ? 'rgba(16, 185, 129, 0.5)' : 'rgba(244, 63, 94, 0.5)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    ctx.restore();
+                });
+            }
+
+            // 5. Draw Existing User Profiles
+            userProfiles.forEach((u) => {
+                const px = valToPxX(u.x);
+                const py = valToPxY(u.y);
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, Math.PI * 2);
+                ctx.fillStyle = u.opinion === 'Liked' ? '#10b981' : '#f43f5e';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // 6. Draw Target User Marker
+            const tPxX = valToPxX(targetUser.x);
+            const tPxY = valToPxY(targetUser.y);
+
+            ctx.save();
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(tPxX, tPxY, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#fbbf24';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+
+            // 7. Update Panel UI
+            updateUI(knnResult);
+        }
+
+        function drawAxesAndGrid(rect) {
+            const padLeft = 55, padBottom = 40;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px Inter, sans-serif';
+
+            // X-Axis (Action/Sci-Fi Score 0 to 10)
+            for (let i = 0; i <= 10; i += 2) {
+                const px = valToPxX(i);
+                ctx.beginPath(); ctx.moveTo(px, 15); ctx.lineTo(px, rect.height - padBottom); ctx.stroke();
+                ctx.textAlign = 'center'; ctx.fillText(`${i}`, px, rect.height - padBottom + 16);
+            }
+
+            // Y-Axis (Drama/Romance Score 0 to 10)
+            for (let i = 0; i <= 10; i += 2) {
+                const py = valToPxY(i);
+                ctx.beginPath(); ctx.moveTo(padLeft, py); ctx.lineTo(rect.width - 15, py); ctx.stroke();
+                ctx.textAlign = 'right'; ctx.fillText(`${i}`, padLeft - 10, py + 4);
+            }
+
+            // Axis Title Labels
+            ctx.fillStyle = '#64748b';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Action / Sci-Fi Preference Score (Feature X₁)', rect.width / 2 + 15, rect.height - 8);
+
+            ctx.save();
+            ctx.translate(16, rect.height / 2 - 10);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Drama / Romance Preference Score (Feature X₂)', 0, 0);
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        function updateUI(res) {
+            const decLabel = document.getElementById('recDecisionLabel');
+            const confLabel = document.getElementById('recConfidenceLabel');
+            const voteBar = document.getElementById('likedVoteBar');
+            const listContainer = document.getElementById('neighborList');
+
+            if (userProfiles.length === 0) {
+                decLabel.innerText = 'NO USER DATA';
+                decLabel.className = 'text-lg font-bold text-slate-500';
+                confLabel.innerText = '0%';
+                voteBar.style.width = '0%';
+                document.getElementById('voteRatioLabel').innerText = '0 / 0 Votes';
+                document.getElementById('likedCountText').innerText = '0';
+                document.getElementById('dislikedCountText').innerText = '0';
+                listContainer.innerHTML = '<span class="text-slate-500 italic">No user profiles available</span>';
+                return;
+            }
+
+            const total = res.actualK;
+            const likedPct = total > 0 ? (res.likedCount / total) * 100 : 0;
+
+            if (res.recommendation === 'Recommend') {
+                decLabel.innerText = 'RECOMMEND';
+                decLabel.className = 'text-lg font-bold text-emerald-400';
+            } else {
+                decLabel.innerText = 'DO NOT RECOMMEND';
+                decLabel.className = 'text-lg font-bold text-rose-400';
+            }
+
+            confLabel.innerText = `${Math.round(res.confidence * 100)}%`;
+            voteBar.style.width = `${likedPct}%`;
+            document.getElementById('voteRatioLabel').innerText = `${res.likedCount} / ${total} Liked`;
+            document.getElementById('likedCountText').innerText = res.likedCount;
+            document.getElementById('dislikedCountText').innerText = res.dislikedCount;
+
+            // Update Distance Table
+            listContainer.innerHTML = '';
+            res.neighbors.forEach((n, idx) => {
+                const item = document.createElement('div');
+                item.className = 'flex justify-between items-center bg-slate-950 px-2 py-1 rounded border border-slate-800/80';
+                
+                const badgeColor = n.user.opinion === 'Liked' ? 'text-emerald-400' : 'text-rose-400';
+                item.innerHTML = `
+                    <span class="text-slate-300">#${idx+1} ${n.user.id || 'User'} <span class="${badgeColor}">(${n.user.opinion})</span></span>
+                    <span class="text-slate-400 font-mono">d = ${n.dist.toFixed(2)}</span>
+                `;
+                listContainer.appendChild(item);
+            });
+        }
+
+        function clearPoints() {
+            userProfiles = [];
+            redrawCanvas();
+        }
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function findPointNear(px, py, threshold = 12) {
+            // Check Target User
+            const tPx = valToPxX(targetUser.x);
+            const tPy = valToPxY(targetUser.y);
+            if (Math.hypot(tPx - px, tPy - py) < threshold) return { type: 'target' };
+
+            // Check User Profiles
+            for (let i = 0; i < userProfiles.length; i++) {
+                const ptPx = valToPxX(userProfiles[i].x);
+                const ptPy = valToPxY(userProfiles[i].y);
+                if (Math.hypot(ptPx - px, ptPy - py) < threshold) return { type: 'profile', index: i };
+            }
+            return null;
+        }
+
+        function handlePointerDown(e) {
+            if (e.button === 2) return;
+            const coords = getCanvasCoords(e);
+            const target = findPointNear(coords.x, coords.y);
+
+            if (target) {
+                if (target.type === 'target') {
+                    isDraggingTarget = true;
+                } else if (target.type === 'profile') {
+                    draggedPointIndex = target.index;
+                }
+            } else {
+                const valX = Number(pxToValX(coords.x).toFixed(1));
+                const valY = Number(pxToValY(coords.y).toFixed(1));
+
+                if (addMode === 'query') {
+                    targetUser = { x: valX, y: valY };
+                } else if (addMode === 'liked') {
+                    userProfiles.push({ x: valX, y: valY, opinion: 'Liked', id: `User ${userProfiles.length + 1}` });
+                } else if (addMode === 'disliked') {
+                    userProfiles.push({ x: valX, y: valY, opinion: 'Disliked', id: `User ${userProfiles.length + 1}` });
+                }
+                redrawCanvas();
+            }
+        }
+
+        function handlePointerMove(e) {
+            const coords = getCanvasCoords(e);
+            if (isDraggingTarget) {
+                targetUser = {
+                    x: Number(pxToValX(coords.x).toFixed(1)),
+                    y: Number(pxToValY(coords.y).toFixed(1))
+                };
+                redrawCanvas();
+            } else if (draggedPointIndex !== null) {
+                userProfiles[draggedPointIndex].x = Number(pxToValX(coords.x).toFixed(1));
+                userProfiles[draggedPointIndex].y = Number(pxToValY(coords.y).toFixed(1));
+                redrawCanvas();
+            } else {
+                canvas.style.cursor = findPointNear(coords.x, coords.y) ? 'grab' : 'crosshair';
+            }
+        }
+
+        function handlePointerUp() {
+            isDraggingTarget = false;
+            draggedPointIndex = null;
+        }
+
+        function handleRightClick(e) {
+            e.preventDefault();
+            const coords = getCanvasCoords(e);
+            const target = findPointNear(coords.x, coords.y);
+            if (target && target.type === 'profile') {
+                userProfiles.splice(target.index, 1);
+                redrawCanvas();
+            }
+        }
+    </script>
+</body>
+</html>

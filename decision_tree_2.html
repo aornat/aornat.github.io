@@ -1,0 +1,750 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Decision Tree  Demo</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        #dtCanvas {
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-4 sm:p-6 selection:bg-rose-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="max-w-6xl mx-auto w-full flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+            <span class="text-xs font-bold px-2.5 py-1 rounded-md bg-rose-500/20 text-rose-400 border border-rose-500/30">Decision Trees</span>
+            <h1 class="text-base font-bold text-white tracking-tight">Medical Risk Diagnosis</h1>
+        </div>
+
+        <!-- Presets & Actions -->
+        <div class="flex items-center gap-2">
+            <button onclick="loadPreset('clean')" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition border border-slate-700">
+                Patient Dataset
+            </button>
+            <button onclick="loadPreset('complex')" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition border border-slate-700">
+                Overlapping Vitals
+            </button>
+            <button onclick="clearPoints()" class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition border border-rose-500/20 ml-2" title="Clear canvas data">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Workspace -->
+    <main class="max-w-6xl mx-auto w-full flex-grow my-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+        <!-- Left Column: 2D Feature Space & Decision Splits (7 cols) -->
+        <div class="lg:col-span-7 flex flex-col gap-3">
+            <div class="glass-panel p-4 rounded-2xl relative shadow-xl">
+                
+                <!-- Canvas Container -->
+                <div class="relative w-full aspect-[4/3]">
+                    <canvas id="dtCanvas" class="w-full h-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+                </div>
+
+                <!-- Canvas Options & Mode Toggle -->
+                <div class="flex flex-wrap items-center justify-between pt-3 text-xs text-slate-400 gap-3">
+                    <div class="flex items-center gap-1.5 bg-slate-900/90 p-1 rounded-xl border border-slate-800">
+                        <span class="text-[11px] font-semibold text-slate-400 px-1.5">Add:</span>
+                        <button id="modeQuery" onclick="setAddMode('query')" class="px-2 py-1 rounded-lg text-xs font-semibold bg-amber-500 text-slate-950 shadow transition flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-slate-950 inline-block"></span> Patient Marker
+                        </button>
+                        <button id="modeAccepted" onclick="setAddMode('accepted')" class="px-2 py-1 rounded-lg text-xs font-medium text-emerald-400 hover:bg-slate-800 transition flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-emerald-400 inline-block"></span> Low Risk
+                        </button>
+                        <button id="modeRejected" onclick="setAddMode('rejected')" class="px-2 py-1 rounded-lg text-xs font-medium text-rose-400 hover:bg-slate-800 transition flex items-center gap-1">
+                            <span class="w-2 h-2 rounded-full bg-rose-400 inline-block"></span> High Risk
+                        </button>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none hover:text-slate-200">
+                            <input type="checkbox" id="boundaryToggle" checked onchange="redrawAll()" class="w-4 h-4 accent-rose-500 rounded">
+                            <span>Regions</span>
+                        </label>
+                        <label class="flex items-center gap-1.5 cursor-pointer select-none hover:text-slate-200">
+                            <input type="checkbox" id="splitsToggle" checked onchange="redrawAll()" class="w-4 h-4 accent-rose-500 rounded">
+                            <span>Split Lines</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Live Decision Tree & Parameters (5 cols) -->
+        <div class="lg:col-span-5 flex flex-col gap-4">
+
+            <!-- Hyperparameters Panel -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Tree Hyperparameters</span>
+                    <span id="depthBadge" class="font-mono font-bold text-sm text-rose-400 bg-rose-500/10 px-2.5 py-0.5 rounded-lg border border-rose-500/20">
+                        Max Depth = <span id="depthValDisplay">2</span>
+                    </span>
+                </div>
+
+                <div class="flex flex-col gap-2 pt-1">
+                    <div class="flex justify-between text-xs text-slate-400 font-medium">
+                        <span>Max Depth (Tree Splits):</span>
+                        <span class="text-slate-300">Controls model complexity</span>
+                    </div>
+                    <input type="range" id="depthSlider" min="1" max="4" step="1" value="2" oninput="updateDepth(this.value)" class="w-full accent-rose-500 bg-slate-800 h-2 rounded-lg cursor-pointer">
+                    <div class="flex justify-between text-[10px] text-slate-500 font-mono">
+                        <span>1 (Simple)</span><span>2</span><span>3</span><span>4 (Overfitted)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Traversal Decision Tree Flowchart -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col gap-3">
+                <div class="flex justify-between items-center">
+                    <span class="text-xs font-semibold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                        <i data-lucide="activity" class="w-4 h-4 text-rose-400"></i> Diagnosis Flowchart
+                    </span>
+                    <span id="accuracyLabel" class="text-xs font-mono font-bold text-slate-300 bg-slate-900 px-2 py-0.5 rounded border border-slate-800">
+                        Acc: 0%
+                    </span>
+                </div>
+
+                <!-- Tree Diagram Rendering Box -->
+                <div id="treeDiagramContainer" class="w-full min-h-[220px] bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-center relative overflow-hidden">
+                    <svg id="treeSvg" class="w-full h-[220px]"></svg>
+                </div>
+
+                <!-- Live Prediction Result for Patient Vitals -->
+                <div id="predictionCard" class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex items-center justify-between mt-1">
+                    <div>
+                        <span class="text-[10px] text-slate-500 uppercase font-bold block">Patient Risk Diagnosis</span>
+                        <span id="predClassLabel" class="text-lg font-bold text-emerald-400">LOW RISK</span>
+                    </div>
+                    <div class="text-right">
+                        <span class="text-[10px] text-slate-500 uppercase font-bold block">Confidence Level</span>
+                        <span id="predPurityLabel" class="text-lg font-mono font-bold text-slate-200">100%</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <script>
+        let dataPoints = [];
+        let queryPoint = { x: 75, y: 120 }; // Patient Vitals: Heart Rate=75 bpm, Blood Pressure=120 mmHg
+        let maxDepth = 2;
+        let addMode = 'query'; // 'query', 'accepted', 'rejected'
+        let isDraggingQuery = false;
+        let draggedPointIndex = null;
+        let trainedTree = null;
+        let activePathNodeIds = new Set();
+
+        const canvas = document.getElementById('dtCanvas');
+        const ctx = canvas.getContext('2d');
+
+        window.onload = function() {
+            lucide.createIcons();
+            resizeCanvas();
+            window.addEventListener('resize', () => { resizeCanvas(); redrawAll(); });
+
+            canvas.addEventListener('mousedown', handlePointerDown);
+            canvas.addEventListener('mousemove', handlePointerMove);
+            canvas.addEventListener('mouseup', handlePointerUp);
+            canvas.addEventListener('contextmenu', handleRightClick);
+
+            // Touch Support
+            canvas.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                handlePointerDown(new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY }));
+            }, {passive: false});
+
+            canvas.addEventListener('touchmove', (e) => {
+                const touch = e.touches[0];
+                handlePointerMove(new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY }));
+            }, {passive: false});
+
+            canvas.addEventListener('touchend', () => handlePointerUp());
+
+            loadPreset('clean');
+        };
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+
+        function setAddMode(mode) {
+            addMode = mode;
+            ['Query', 'Accepted', 'Rejected'].forEach(m => {
+                const btn = document.getElementById(`mode${m}`);
+                if (m.toLowerCase() === mode) {
+                    btn.className = `px-2 py-1 rounded-lg text-xs font-semibold shadow transition flex items-center gap-1 ${
+                        mode === 'query' ? 'bg-amber-500 text-slate-950' : 
+                        mode === 'accepted' ? 'bg-emerald-500 text-slate-950' : 'bg-rose-500 text-slate-950'
+                    }`;
+                } else {
+                    btn.className = `px-2 py-1 rounded-lg text-xs font-medium hover:bg-slate-800 transition flex items-center gap-1 ${
+                        m === 'Accepted' ? 'text-emerald-400' : m === 'Rejected' ? 'text-rose-400' : 'text-amber-400'
+                    }`;
+                }
+            });
+        }
+
+        function updateDepth(val) {
+            maxDepth = parseInt(val, 10);
+            document.getElementById('depthValDisplay').innerText = maxDepth;
+            redrawAll();
+        }
+
+        function loadPreset(type) {
+            if (type === 'clean') {
+                dataPoints = [
+                    // Low Risk (Normal heart rate 60-85, normal blood pressure 100-135)
+                    { x: 62, y: 110, label: 'Low Risk' }, { x: 70, y: 118, label: 'Low Risk' },
+                    { x: 75, y: 125, label: 'Low Risk' }, { x: 80, y: 105, label: 'Low Risk' },
+                    { x: 68, y: 130, label: 'Low Risk' }, { x: 82, y: 115, label: 'Low Risk' },
+                    // High Risk (High heart rate >85 or high blood pressure >140)
+                    { x: 95, y: 150, label: 'High Risk' }, { x: 105, y: 165, label: 'High Risk' },
+                    { x: 110, y: 142, label: 'High Risk' }, { x: 88, y: 158, label: 'High Risk' },
+                    { x: 115, y: 120, label: 'High Risk' }, { x: 65, y: 168, label: 'High Risk' }
+                ];
+                queryPoint = { x: 75, y: 120 };
+            } else {
+                dataPoints = [
+                    { x: 60, y: 105, label: 'Low Risk' }, { x: 72, y: 122, label: 'Low Risk' },
+                    { x: 84, y: 138, label: 'High Risk' }, { x: 92, y: 110, label: 'High Risk' },
+                    { x: 78, y: 148, label: 'High Risk' }, { x: 102, y: 160, label: 'High Risk' },
+                    { x: 68, y: 152, label: 'High Risk' }, { x: 112, y: 100, label: 'High Risk' },
+                    { x: 80, y: 128, label: 'Low Risk' }, { x: 86, y: 124, label: 'Low Risk' }
+                ];
+                queryPoint = { x: 85, y: 135 };
+            }
+            redrawAll();
+        }
+
+        // --- Decision Tree Algorithm (Gini Impurity Split) ---
+        function calculateGini(pts) {
+            if (pts.length === 0) return 0;
+            let low = pts.filter(p => p.label === 'Low Risk').length;
+            let high = pts.length - low;
+            let pLow = low / pts.length;
+            let pHigh = high / pts.length;
+            return 1 - (pLow * pLow + pHigh * pHigh);
+        }
+
+        function buildTree(pts, currentDepth, maxD, bounds, nodeId = "1") {
+            const lowCount = pts.filter(p => p.label === 'Low Risk').length;
+            const highCount = pts.filter(p => p.label === 'High Risk').length;
+            const prediction = lowCount >= highCount ? 'Low Risk' : 'High Risk';
+            const purity = pts.length > 0 ? (Math.max(lowCount, highCount) / pts.length) : 1;
+
+            const node = {
+                id: nodeId,
+                pts: pts,
+                bounds: bounds,
+                prediction: prediction,
+                purity: purity,
+                isLeaf: true,
+                feature: null,
+                splitVal: null,
+                left: null,
+                right: null
+            };
+
+            if (currentDepth >= maxD || pts.length <= 1 || purity === 1) {
+                return node;
+            }
+
+            // Find best split across features x (Heart Rate) and y (Blood Pressure)
+            let bestGini = 1.0;
+            let bestFeature = null;
+            let bestSplitVal = null;
+            let bestLeftPts = [], bestRightPts = [];
+            let bestLeftBounds = null, bestRightBounds = null;
+
+            const features = ['x', 'y'];
+            for (let f of features) {
+                const vals = [...new Set(pts.map(p => p[f]))].sort((a, b) => a - b);
+                for (let i = 0; i < vals.length - 1; i++) {
+                    const splitVal = (vals[i] + vals[i + 1]) / 2;
+                    const left = pts.filter(p => p[f] <= splitVal);
+                    const right = pts.filter(p => p[f] > splitVal);
+
+                    if (left.length === 0 || right.length === 0) continue;
+
+                    const giniLeft = calculateGini(left);
+                    const giniRight = calculateGini(right);
+                    const weightedGini = (left.length / pts.length) * giniLeft + (right.length / pts.length) * giniRight;
+
+                    if (weightedGini < bestGini) {
+                        bestGini = weightedGini;
+                        bestFeature = f;
+                        bestSplitVal = splitVal;
+                        bestLeftPts = left;
+                        bestRightPts = right;
+
+                        if (f === 'x') {
+                            bestLeftBounds = { xMin: bounds.xMin, xMax: splitVal, yMin: bounds.yMin, yMax: bounds.yMax };
+                            bestRightBounds = { xMin: splitVal, xMax: bounds.xMax, yMin: bounds.yMin, yMax: bounds.yMax };
+                        } else {
+                            bestLeftBounds = { xMin: bounds.xMin, xMax: bounds.xMax, yMin: bounds.yMin, yMax: splitVal };
+                            bestRightBounds = { xMin: bounds.xMin, xMax: bounds.xMax, yMin: splitVal, yMax: bounds.yMax };
+                        }
+                    }
+                }
+            }
+
+            if (bestFeature !== null) {
+                node.isLeaf = false;
+                node.feature = bestFeature;
+                node.splitVal = bestSplitVal;
+                node.left = buildTree(bestLeftPts, currentDepth + 1, maxD, bestLeftBounds, nodeId + "L");
+                node.right = buildTree(bestRightPts, currentDepth + 1, maxD, bestRightBounds, nodeId + "R");
+            }
+
+            return node;
+        }
+
+        function predictAndTracePath(node, q, pathSet = new Set()) {
+            if (!node) return { prediction: 'N/A', purity: 0 };
+            pathSet.add(node.id);
+
+            if (node.isLeaf) {
+                return { prediction: node.prediction, purity: node.purity, leafNode: node };
+            }
+
+            const val = q[node.feature];
+            if (val <= node.splitVal) {
+                return predictAndTracePath(node.left, q, pathSet);
+            } else {
+                return predictAndTracePath(node.right, q, pathSet);
+            }
+        }
+
+        // --- Coordinate Conversions ---
+        function valToPxX(val) {
+            const rect = canvas.getBoundingClientRect();
+            const padLeft = 55, padRight = 20;
+            return padLeft + ((val - 50.0) / 80.0) * (rect.width - padLeft - padRight); // Heart Rate 50 - 130 BPM
+        }
+
+        function valToPxY(val) {
+            const rect = canvas.getBoundingClientRect();
+            const padTop = 20, padBottom = 40;
+            return rect.height - padBottom - ((val - 90.0) / 90.0) * (rect.height - padTop - padBottom); // Blood Pressure 90 - 180 mmHg
+        }
+
+        function pxToValX(px) {
+            const rect = canvas.getBoundingClientRect();
+            const padLeft = 55, padRight = 20;
+            const val = 50.0 + ((px - padLeft) / (rect.width - padLeft - padRight)) * 80.0;
+            return Math.max(50.0, Math.min(130.0, val));
+        }
+
+        function pxToValY(py) {
+            const rect = canvas.getBoundingClientRect();
+            const padTop = 20, padBottom = 40;
+            const val = 90.0 + ((rect.height - padBottom - py) / (rect.height - padTop - padBottom)) * 90.0;
+            return Math.max(90.0, Math.min(180.0, val));
+        }
+
+        // --- Render Functions ---
+        function redrawAll() {
+            const rootBounds = { xMin: 50.0, xMax: 130.0, yMin: 90.0, yMax: 180.0 };
+            trainedTree = buildTree(dataPoints, 0, maxDepth, rootBounds);
+
+            activePathNodeIds.clear();
+            const queryResult = predictAndTracePath(trainedTree, queryPoint, activePathNodeIds);
+
+            redrawCanvas(trainedTree);
+            renderTreeSVG(trainedTree);
+            updateUI(queryResult);
+        }
+
+        function drawTreeLeavesRegions(node) {
+            if (!node) return;
+
+            if (node.isLeaf) {
+                const x1 = valToPxX(node.bounds.xMin);
+                const x2 = valToPxX(node.bounds.xMax);
+                const y1 = valToPxY(node.bounds.yMax);
+                const y2 = valToPxY(node.bounds.yMin);
+
+                ctx.fillStyle = node.prediction === 'Low Risk'
+                    ? 'rgba(16, 185, 129, 0.08)'
+                    : 'rgba(244, 63, 94, 0.08)';
+                ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
+            } else {
+                drawTreeLeavesRegions(node.left);
+                drawTreeLeavesRegions(node.right);
+            }
+        }
+
+        function drawTreeSplits(node) {
+            if (!node || node.isLeaf) return;
+
+            ctx.save();
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 4]);
+
+            if (node.feature === 'x') {
+                const px = valToPxX(node.splitVal);
+                const pyTop = valToPxY(node.bounds.yMax);
+                const pyBottom = valToPxY(node.bounds.yMin);
+                ctx.beginPath();
+                ctx.moveTo(px, pyTop);
+                ctx.lineTo(px, pyBottom);
+                ctx.stroke();
+            } else {
+                const py = valToPxY(node.splitVal);
+                const pxLeft = valToPxX(node.bounds.xMin);
+                const pxRight = valToPxX(node.bounds.xMax);
+                ctx.beginPath();
+                ctx.moveTo(pxLeft, py);
+                ctx.lineTo(pxRight, py);
+                ctx.stroke();
+            }
+            ctx.restore();
+
+            drawTreeSplits(node.left);
+            drawTreeSplits(node.right);
+        }
+
+        function redrawCanvas(tree) {
+            const rect = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            // 1. Decision Regions
+            if (document.getElementById('boundaryToggle').checked && dataPoints.length > 0) {
+                drawTreeLeavesRegions(tree);
+            }
+
+            // 2. Grid & Axes
+            drawAxesAndGrid(rect);
+
+            // 3. Axis Split Lines
+            if (document.getElementById('splitsToggle').checked && dataPoints.length > 0) {
+                drawTreeSplits(tree);
+            }
+
+            // 4. Data Points
+            dataPoints.forEach((p) => {
+                const px = valToPxX(p.x);
+                const py = valToPxY(p.y);
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, Math.PI * 2);
+                ctx.fillStyle = p.label === 'Low Risk' ? '#10b981' : '#f43f5e';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // 5. Query Point (Patient Marker)
+            const qPxX = valToPxX(queryPoint.x);
+            const qPxY = valToPxY(queryPoint.y);
+
+            ctx.save();
+            ctx.shadowColor = '#fbbf24';
+            ctx.shadowBlur = 12;
+            ctx.beginPath();
+            ctx.arc(qPxX, qPxY, 8, 0, Math.PI * 2);
+            ctx.fillStyle = '#fbbf24';
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 2.5;
+            ctx.fill();
+            ctx.stroke();
+            ctx.restore();
+        }
+
+        function drawAxesAndGrid(rect) {
+            const padLeft = 55, padBottom = 40;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px Inter, sans-serif';
+
+            // X-Axis Resting Heart Rate (50 to 130 BPM)
+            for (let bpm = 50; bpm <= 130; bpm += 20) {
+                const px = valToPxX(bpm);
+                ctx.beginPath(); ctx.moveTo(px, 15); ctx.lineTo(px, rect.height - padBottom); ctx.stroke();
+                ctx.textAlign = 'center'; ctx.fillText(`${bpm}`, px, rect.height - padBottom + 16);
+            }
+
+            // Y-Axis Blood Pressure (90 to 180 mmHg)
+            for (let bp = 90; bp <= 180; bp += 20) {
+                const py = valToPxY(bp);
+                ctx.beginPath(); ctx.moveTo(padLeft, py); ctx.lineTo(rect.width - 15, py); ctx.stroke();
+                ctx.textAlign = 'right'; ctx.fillText(`${bp}`, padLeft - 10, py + 4);
+            }
+
+            // Labels
+            ctx.fillStyle = '#64748b';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Resting Heart Rate BPM (Feature X₁)', rect.width / 2 + 15, rect.height - 8);
+
+            ctx.save();
+            ctx.translate(16, rect.height / 2 - 10);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Systolic Blood Pressure mmHg (Feature X₂)', 0, 0);
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        // --- Render Dynamic Decision Tree SVG Flowchart ---
+        function renderTreeSVG(tree) {
+            const svg = document.getElementById('treeSvg');
+            svg.innerHTML = '';
+            if (!tree || dataPoints.length === 0) return;
+
+            const container = document.getElementById('treeDiagramContainer');
+            const width = container.clientWidth || 380;
+
+            // Layout Tree Nodes
+            const nodes = [];
+            const links = [];
+
+            function layoutNode(node, depth, xMin, xMax) {
+                const x = (xMin + xMax) / 2;
+                const y = 25 + depth * 45;
+
+                const nodeItem = { node, x, y, id: node.id };
+                nodes.push(nodeItem);
+
+                if (!node.isLeaf) {
+                    if (node.left) {
+                        links.push({ parentId: node.id, childId: node.left.id, label: '≤' });
+                        layoutNode(node.left, depth + 1, xMin, x);
+                    }
+                    if (node.right) {
+                        links.push({ parentId: node.id, childId: node.right.id, label: '>' });
+                        layoutNode(node.right, depth + 1, x, xMax);
+                    }
+                }
+            }
+
+            layoutNode(tree, 0, 15, width - 15);
+
+            // Draw Connection Lines
+            links.forEach(link => {
+                const source = nodes.find(n => n.id === link.parentId);
+                const target = nodes.find(n => n.id === link.childId);
+                const isActive = activePathNodeIds.has(source.id) && activePathNodeIds.has(target.id);
+
+                const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                line.setAttribute('x1', source.x);
+                line.setAttribute('y1', source.y);
+                line.setAttribute('x2', target.x);
+                line.setAttribute('y2', target.y);
+                line.setAttribute('stroke', isActive ? '#fbbf24' : '#475569');
+                line.setAttribute('stroke-width', isActive ? '2.5' : '1.5');
+                if (isActive) line.setAttribute('stroke-dasharray', '3,3');
+                svg.appendChild(line);
+            });
+
+            // Draw Node Boxes
+            nodes.forEach(nItem => {
+                const nd = nItem.node;
+                const isActive = activePathNodeIds.has(nd.id);
+
+                const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+                if (nd.isLeaf) {
+                    // Leaf Circle
+                    const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                    circle.setAttribute('cx', nItem.x);
+                    circle.setAttribute('cy', nItem.y);
+                    circle.setAttribute('r', '13');
+                    circle.setAttribute('fill', nd.prediction === 'Low Risk' ? '#10b981' : '#f43f5e');
+                    circle.setAttribute('stroke', isActive ? '#fbbf24' : '#ffffff');
+                    circle.setAttribute('stroke-width', isActive ? '3' : '1.5');
+                    g.appendChild(circle);
+
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('x', nItem.x);
+                    text.setAttribute('y', nItem.y + 4);
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('fill', '#ffffff');
+                    text.setAttribute('font-size', '9.5px');
+                    text.setAttribute('font-weight', 'bold');
+                    text.textContent = nd.prediction === 'Low Risk' ? 'LOW' : 'HIGH';
+                    g.appendChild(text);
+                } else {
+                    // Decision Split Node Box
+                    const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+                    const w = 72, h = 22;
+                    rect.setAttribute('x', nItem.x - w / 2);
+                    rect.setAttribute('y', nItem.y - h / 2);
+                    rect.setAttribute('width', w);
+                    rect.setAttribute('height', h);
+                    rect.setAttribute('rx', '6');
+                    rect.setAttribute('fill', isActive ? '#1e293b' : '#0f172a');
+                    rect.setAttribute('stroke', isActive ? '#fbbf24' : '#38bdf8');
+                    rect.setAttribute('stroke-width', isActive ? '2' : '1');
+                    g.appendChild(rect);
+
+                    const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                    text.setAttribute('x', nItem.x);
+                    text.setAttribute('y', nItem.y + 3.5);
+                    text.setAttribute('text-anchor', 'middle');
+                    text.setAttribute('fill', isActive ? '#fbbf24' : '#f8fafc');
+                    text.setAttribute('font-size', '9.5px');
+                    text.setAttribute('font-family', 'monospace');
+                    text.setAttribute('font-weight', '600');
+
+                    const featName = nd.feature === 'x' ? 'BPM' : 'BP';
+                    text.textContent = `${featName} ≤ ${Math.round(nd.splitVal)}`;
+                    g.appendChild(text);
+                }
+
+                svg.appendChild(g);
+            });
+        }
+
+        function updateUI(res) {
+            const predLabel = document.getElementById('predClassLabel');
+            const purityLabel = document.getElementById('predPurityLabel');
+            const accuracyLabel = document.getElementById('accuracyLabel');
+
+            if (dataPoints.length === 0) {
+                predLabel.innerText = 'NO DATA';
+                predLabel.className = 'text-lg font-bold text-slate-500';
+                purityLabel.innerText = '0%';
+                accuracyLabel.innerText = 'Acc: 0%';
+                return;
+            }
+
+            if (res.prediction === 'Low Risk') {
+                predLabel.innerText = 'LOW RISK';
+                predLabel.className = 'text-lg font-bold text-emerald-400';
+            } else {
+                predLabel.innerText = 'HIGH RISK';
+                predLabel.className = 'text-lg font-bold text-rose-400';
+            }
+
+            purityLabel.innerText = `${Math.round(res.purity * 100)}%`;
+
+            // Calculate Model Training Accuracy
+            let correct = 0;
+            dataPoints.forEach(p => {
+                const dummyPath = new Set();
+                const pRes = predictAndTracePath(trainedTree, p, dummyPath);
+                if (pRes.prediction === p.label) correct++;
+            });
+            const acc = Math.round((correct / dataPoints.length) * 100);
+            accuracyLabel.innerText = `Acc: ${acc}%`;
+        }
+
+        function clearPoints() {
+            dataPoints = [];
+            redrawAll();
+        }
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function findPointNear(px, py, threshold = 12) {
+            // Check Query Point
+            const qPx = valToPxX(queryPoint.x);
+            const qPy = valToPxY(queryPoint.y);
+            if (Math.hypot(qPx - px, qPy - py) < threshold) return { type: 'query' };
+
+            // Check Data Points
+            for (let i = 0; i < dataPoints.length; i++) {
+                const ptPx = valToPxX(dataPoints[i].x);
+                const ptPy = valToPxY(dataPoints[i].y);
+                if (Math.hypot(ptPx - px, ptPy - py) < threshold) return { type: 'class', index: i };
+            }
+            return null;
+        }
+
+        function handlePointerDown(e) {
+            if (e.button === 2) return;
+            const coords = getCanvasCoords(e);
+            const target = findPointNear(coords.x, coords.y);
+
+            if (target) {
+                if (target.type === 'query') {
+                    isDraggingQuery = true;
+                } else if (target.type === 'class') {
+                    draggedPointIndex = target.index;
+                }
+            } else {
+                const valX = Number(pxToValX(coords.x).toFixed(1));
+                const valY = Number(pxToValY(coords.y).toFixed(1));
+
+                if (addMode === 'query') {
+                    queryPoint = { x: valX, y: valY };
+                } else if (addMode === 'accepted') {
+                    dataPoints.push({ x: valX, y: valY, label: 'Low Risk' });
+                } else if (addMode === 'rejected') {
+                    dataPoints.push({ x: valX, y: valY, label: 'High Risk' });
+                }
+                redrawAll();
+            }
+        }
+
+        function handlePointerMove(e) {
+            const coords = getCanvasCoords(e);
+            if (isDraggingQuery) {
+                queryPoint = {
+                    x: Number(pxToValX(coords.x).toFixed(1)),
+                    y: Number(pxToValY(coords.y).toFixed(1))
+                };
+                redrawAll();
+            } else if (draggedPointIndex !== null) {
+                dataPoints[draggedPointIndex].x = Number(pxToValX(coords.x).toFixed(1));
+                dataPoints[draggedPointIndex].y = Number(pxToValY(coords.y).toFixed(1));
+                redrawAll();
+            } else {
+                canvas.style.cursor = findPointNear(coords.x, coords.y) ? 'grab' : 'crosshair';
+            }
+        }
+
+        function handlePointerUp() {
+            isDraggingQuery = false;
+            draggedPointIndex = null;
+        }
+
+        function handleRightClick(e) {
+            e.preventDefault();
+            const coords = getCanvasCoords(e);
+            const target = findPointNear(coords.x, coords.y);
+            if (target && target.type === 'class') {
+                dataPoints.splice(target.index, 1);
+                redrawAll();
+            }
+        }
+    </script>
+</body>
+</html>

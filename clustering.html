@@ -1,0 +1,1346 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clustering Demo</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090a0f;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom scrollbars */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f1117;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 3px;
+        }
+
+        /* Range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #1e2433;
+            height: 6px;
+            border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .hud-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between p-3 gap-3 select-none">
+
+    <!-- Top Header Bar (Ultra Minimal) -->
+    <header class="hud-card rounded-xl px-4 py-2 flex items-center justify-between border-b border-cyan-500/20">
+        <div class="flex items-center gap-3">
+            <span class="text-xs font-mono font-bold bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/40">Unsupervised Learning</span>
+            <h1 class="text-sm md:text-base font-semibold tracking-wide text-slate-100 flex items-center gap-2">
+                <span>Clustering</span>
+                <span class="text-xs text-slate-500 font-mono hidden md:inline">| IB Computer Science with Mr Ornat</span>
+            </h1>
+        </div>
+
+        <!-- Real-world Context Toggle -->
+        <div class="flex items-center gap-2">
+            <!-- 2D / 3D Mode Toggle -->
+            <div class="flex items-center bg-slate-900/80 p-1 rounded-lg border border-slate-800">
+                <button id="view-2d" class="px-2.5 py-1 text-xs rounded-md font-medium transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    2D Space
+                </button>
+                <button id="view-3d" class="px-2.5 py-1 text-xs rounded-md font-medium transition-all text-slate-400 hover:text-slate-200">
+                    3D Space
+                </button>
+            </div>
+
+            <div class="flex items-center bg-slate-900/80 p-1 rounded-lg border border-slate-800">
+                <button id="mode-abstract" class="px-2.5 py-1 text-xs rounded-md font-medium transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    Abstract (X/Y)
+                </button>
+                <button id="mode-retail" class="px-2.5 py-1 text-xs rounded-md font-medium transition-all text-slate-400 hover:text-slate-200">
+                    Customer Segments
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
+        
+        <!-- Left Column: Controls & Presets (3 Cols) -->
+        <section class="lg:col-span-3 flex flex-col gap-3 min-h-0 overflow-y-auto pr-1">
+            
+            <!-- Dataset Presets -->
+            <div class="hud-card p-3.5 rounded-xl space-y-2">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex justify-between">
+                    <span>1. Data Distributions</span>
+                    <span id="point-count-badge" class="text-cyan-400">0 pts</span>
+                </div>
+                <div class="grid grid-cols-2 gap-1.5 text-xs font-medium">
+                    <button id="preset-ecommerce" class="p-2 rounded bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 text-left transition text-slate-300">
+                        🛒 E-Commerce
+                    </button>
+                    <button id="preset-anisotropic" class="p-2 rounded bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 text-left transition text-slate-300">
+                        🥖 Elongated
+                    </button>
+                    <button id="preset-circles" class="p-2 rounded bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 text-left transition text-slate-300">
+                        🎯 Concentric
+                    </button>
+                    <button id="preset-noise" class="p-2 rounded bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 text-left transition text-slate-300">
+                        ⚡ Uniform Noise
+                    </button>
+                </div>
+                <div class="flex gap-2 pt-1">
+                    <button id="btn-add-random" class="flex-1 py-1 px-2 text-xs bg-slate-800 hover:bg-slate-700 rounded text-slate-300 border border-slate-700/60 transition">
+                        +50 Points
+                    </button>
+                    <button id="btn-clear-data" class="py-1 px-3 text-xs bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/30 rounded transition">
+                        Clear
+                    </button>
+                </div>
+            </div>
+
+            <!-- Algorithm Selector -->
+            <div class="hud-card p-3.5 rounded-xl space-y-3">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    2. Algorithm Selector
+                </div>
+                <div class="grid grid-cols-3 gap-1 p-1 bg-slate-900/90 rounded-lg border border-slate-800 text-xs font-semibold">
+                    <button id="algo-kmeans" class="py-1.5 rounded transition text-center bg-cyan-500/20 text-cyan-300 border border-cyan-500/40">K-Means</button>
+                    <button id="algo-dbscan" class="py-1.5 rounded transition text-center text-slate-400 hover:text-slate-200">DBSCAN</button>
+                    <button id="algo-hierarchical" class="py-1.5 rounded transition text-center text-slate-400 hover:text-slate-200">Hierarchical</button>
+                </div>
+
+                <!-- Dynamic Hyperparameter Panels -->
+                <div id="panel-kmeans" class="space-y-3 pt-1">
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="text-slate-300 font-medium">Clusters (K): <span id="val-k" class="font-mono text-cyan-400 font-bold">3</span></label>
+                        <input id="slider-k" type="range" min="1" max="8" value="3" class="w-28">
+                    </div>
+                    <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-800">
+                        <span class="text-slate-400">Voronoi Boundaries</span>
+                        <input type="checkbox" id="check-voronoi" class="accent-cyan-500 rounded cursor-pointer" checked>
+                    </div>
+                    <div class="flex items-center justify-between text-xs">
+                        <span class="text-slate-400">Vector Shift Overlay</span>
+                        <input type="checkbox" id="check-vectors" class="accent-cyan-500 rounded cursor-pointer" checked>
+                    </div>
+                    <div class="text-[11px] text-slate-500 italic">
+                        Tip: Drag centroids manually on canvas before stepping.
+                    </div>
+                </div>
+
+                <div id="panel-dbscan" class="space-y-3 pt-1 hidden">
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="text-slate-300 font-medium">Radius (Eps): <span id="val-eps" class="font-mono text-cyan-400 font-bold">40</span></label>
+                        <input id="slider-eps" type="range" min="10" max="100" value="40" class="w-28">
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="text-slate-300 font-medium">Min Points: <span id="val-minpts" class="font-mono text-cyan-400 font-bold">4</span></label>
+                        <input id="slider-minpts" type="range" min="1" max="15" value="4" class="w-28">
+                    </div>
+                    <div class="flex items-center justify-between text-xs pt-1 border-t border-slate-800">
+                        <span class="text-slate-400">Show Halos on Hover</span>
+                        <input type="checkbox" id="check-halos" class="accent-cyan-500 rounded cursor-pointer" checked>
+                    </div>
+                </div>
+
+                <div id="panel-hierarchical" class="space-y-3 pt-1 hidden">
+                    <div class="space-y-1">
+                        <label class="text-xs text-slate-300 font-medium">Linkage Criteria:</label>
+                        <select id="select-linkage" class="w-full bg-slate-900 border border-slate-700 text-slate-200 text-xs rounded p-1.5 focus:outline-none focus:border-cyan-500">
+                            <option value="single">Single (Min Distance)</option>
+                            <option value="complete">Complete (Max Distance)</option>
+                            <option value="average">Average (Mean Distance)</option>
+                        </select>
+                    </div>
+                    <div class="flex justify-between items-center text-xs">
+                        <label class="text-slate-300 font-medium">Target Clusters: <span id="val-h-k" class="font-mono text-cyan-400 font-bold">3</span></label>
+                        <input id="slider-h-k" type="range" min="1" max="10" value="3" class="w-28">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Execution Controls -->
+            <div class="hud-card p-3.5 rounded-xl space-y-2">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    3. Step Control
+                </div>
+                <div class="flex gap-2">
+                    <button id="btn-step" class="flex-1 py-2 rounded bg-cyan-600 hover:bg-cyan-500 text-white font-semibold text-xs transition shadow-lg shadow-cyan-900/40">
+                        Step ➔
+                    </button>
+                    <button id="btn-play" class="flex-1 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition shadow-lg shadow-emerald-900/40">
+                        Play
+                    </button>
+                    <button id="btn-reset" class="py-2 px-3 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs transition">
+                        Reset
+                    </button>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Center Column: Main Interactive Canvas (6 Cols) -->
+        <section class="lg:col-span-6 flex flex-col hud-card rounded-xl p-3 relative min-h-[350px]">
+            <!-- Axis Labels Overlay -->
+            <div class="absolute top-4 left-5 text-xs font-mono text-slate-500 pointer-events-none z-10 flex items-center gap-1.5">
+                <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span>
+                <span id="axis-y-label">Feature Y (Normalized)</span>
+            </div>
+            <div id="axis-z-container" class="absolute top-4 right-5 text-xs font-mono text-slate-500 pointer-events-none z-10 hidden flex items-center gap-1.5">
+                <span id="axis-z-label">Feature Z (CLV / Recency)</span>
+                <span class="w-2.5 h-2.5 rounded-full bg-purple-400 inline-block"></span>
+            </div>
+            <div class="absolute bottom-4 right-5 text-xs font-mono text-slate-500 pointer-events-none z-10 flex items-center gap-1.5">
+                <span id="axis-x-label">Feature X (Normalized)</span>
+                <span class="w-2.5 h-2.5 rounded-full bg-cyan-400 inline-block"></span>
+            </div>
+
+            <!-- 3D Controls HUD Overlay (Shown when 3D is active) -->
+            <div id="controls-3d-hud" class="absolute top-12 left-5 z-10 hidden flex items-center gap-2">
+                <button id="btn-toggle-autorotate" class="px-2 py-1 text-[11px] font-mono rounded bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                    🔄 Auto-Rotate: ON
+                </button>
+                <button id="btn-reset-view" class="px-2 py-1 text-[11px] font-mono rounded bg-slate-800/90 hover:bg-slate-700 text-slate-300 border border-slate-700">
+                    Reset Camera
+                </button>
+            </div>
+
+            <!-- Canvas Container -->
+            <div id="canvas-container" class="relative flex-1 w-full h-full rounded-lg overflow-hidden bg-slate-950/80 border border-slate-900">
+                <canvas id="clusterCanvas" class="w-full h-full block cursor-crosshair"></canvas>
+            </div>
+
+            <!-- Bottom Left Canvas Helper Prompt -->
+            <div id="canvas-helper-text" class="absolute bottom-4 left-5 text-[11px] font-mono text-slate-600 pointer-events-none">
+                [ Click canvas to insert data point ]
+            </div>
+        </section>
+
+        <!-- Right Column: Real-time HUD Metrics & Dendrogram (3 Cols) -->
+        <section class="lg:col-span-3 flex flex-col gap-3 min-h-0">
+            
+            <!-- Metrics Readout HUD -->
+            <div class="hud-card p-3.5 rounded-xl space-y-3">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                    <span>Performance Metrics</span>
+                    <span id="step-counter" class="text-cyan-400 text-xs font-mono">Step: 0</span>
+                </div>
+                
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div class="bg-slate-900/90 p-2.5 rounded border border-slate-800">
+                        <div class="text-slate-500 text-[10px] font-mono uppercase">Silhouette Score</div>
+                        <div id="metric-silhouette" class="text-lg font-mono font-bold text-emerald-400">0.00</div>
+                        <div class="text-[9px] text-slate-500">(-1: Bad, +1: Dense)</div>
+                    </div>
+                    
+                    <div id="metric-box-secondary" class="bg-slate-900/90 p-2.5 rounded border border-slate-800">
+                        <div id="metric-sec-title" class="text-slate-500 text-[10px] font-mono uppercase">WCSS (Inertia)</div>
+                        <div id="metric-sec-value" class="text-lg font-mono font-bold text-cyan-400">0.0</div>
+                        <div id="metric-sec-desc" class="text-[9px] text-slate-500">Sum of Squared Dist</div>
+                    </div>
+                </div>
+
+                <!-- Legend Indicator -->
+                <div class="pt-2 border-t border-slate-800/80">
+                    <div class="text-[11px] font-mono text-slate-400 mb-1.5 font-semibold">Cluster Legend</div>
+                    <div id="legend-container" class="flex flex-wrap gap-1.5">
+                        <!-- Dynamic Legend Pills -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dendrogram Mini Panel (for Hierarchical) or Algo Explainer -->
+            <div class="hud-card p-3.5 rounded-xl flex-1 flex flex-col min-h-[180px]">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between">
+                    <span id="panel-right-title">Live Visualization Overlay</span>
+                </div>
+
+                <div id="hierarchical-dendrogram-container" class="flex-1 w-full bg-slate-950/60 rounded border border-slate-900 relative overflow-hidden flex flex-col justify-end p-2">
+                    <canvas id="dendrogramCanvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Vanilla JS Logic Script -->
+    <script>
+        // --- COLOR PALETTE (Vivid High Contrast Neon) ---
+        const CLUSTER_COLORS = [
+            '#00f3ff', // Neon Cyan
+            '#ff007f', // Neon Magenta
+            '#39ff14', // Neon Lime
+            '#ffe600', // Neon Yellow
+            '#ff6600', // Neon Orange
+            '#b026ff', // Neon Purple
+            '#00ffaa', // Electric Mint
+            '#ff3366'  // Bright Coral
+        ];
+        const NOISE_COLOR = '#64748b'; // Slate Grey for DBSCAN noise
+
+        // --- GLOBAL STATE ---
+        const state = {
+            viewDim: '2D', // '2D' | '3D'
+            mode: 'abstract', // 'abstract' | 'retail'
+            algorithm: 'kmeans', // 'kmeans' | 'dbscan' | 'hierarchical'
+            points: [], // Array of {x, y, z, cluster, coreType}
+            centroids: [], // For K-Means: [{x, y, z, prevX, prevY, prevZ, color}]
+            camera3D: {
+                rotX: 0.35,
+                rotY: 0.65,
+                autoRotate: true,
+                isDragging: false,
+                lastMouseX: 0,
+                lastMouseY: 0
+            },
+            kmeans: {
+                k: 3,
+                step: 0,
+                showVoronoi: true,
+                showVectors: true,
+                converged: false
+            },
+            dbscan: {
+                eps: 40,
+                minPts: 4,
+                step: 0,
+                visited: new Set(),
+                clusters: []
+            },
+            hierarchical: {
+                linkage: 'single', // 'single' | 'complete' | 'average'
+                targetK: 3,
+                history: []
+            },
+            isPlaying: false,
+            timer: null,
+            hoverPoint: null
+        };
+
+        // --- DOM ELEMENTS ---
+        const canvas = document.getElementById('clusterCanvas');
+        const ctx = canvas.getContext('2d');
+        const dendroCanvas = document.getElementById('dendrogramCanvas');
+        const dendroCtx = dendroCanvas.getContext('2d');
+        const canvasContainer = document.getElementById('canvas-container');
+
+        // --- RESIZE CANVAS ---
+        function resizeCanvas() {
+            const rect = canvasContainer.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+
+            const dendroRect = dendroCanvas.parentElement.getBoundingClientRect();
+            dendroCanvas.width = dendroRect.width;
+            dendroCanvas.height = dendroRect.height;
+            
+            draw();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- DATASET GENERATORS ---
+        function generateDataset(type) {
+            state.points = [];
+            state.centroids = [];
+            state.kmeans.step = 0;
+            state.kmeans.converged = false;
+            stopAnimation();
+
+            const w = canvas.width || 600;
+            const h = canvas.height || 400;
+            const cx = w / 2;
+            const cy = h / 2;
+
+            if (type === 'ecommerce') {
+                const clusters = [
+                    { count: 45, x: w * 0.75, y: h * 0.25, z: 80, stdX: 35, stdY: 25, stdZ: 20 },
+                    { count: 50, x: w * 0.25, y: h * 0.30, z: -60, stdX: 40, stdY: 30, stdZ: 25 },
+                    { count: 60, x: w * 0.25, y: h * 0.75, z: -100, stdX: 35, stdY: 35, stdZ: 30 },
+                    { count: 40, x: w * 0.75, y: h * 0.70, z: 90, stdX: 45, stdY: 35, stdZ: 25 }
+                ];
+                clusters.forEach(c => {
+                    for (let i = 0; i < c.count; i++) {
+                        state.points.push({
+                            x: clamp(gaussian(c.x, c.stdX), 30, w - 30),
+                            y: clamp(gaussian(c.y, c.stdY), 30, h - 30),
+                            z: clamp(gaussian(c.z, c.stdZ), -150, 150),
+                            cluster: -1
+                        });
+                    }
+                });
+            } else if (type === 'anisotropic') {
+                for (let i = 0; i < 90; i++) {
+                    let t = Math.random() * 220 - 110;
+                    state.points.push({
+                        x: cx - 120 + t + gaussian(0, 12),
+                        y: cy - 60 + t * 0.5 + gaussian(0, 12),
+                        z: t * 0.8 + gaussian(0, 15),
+                        cluster: -1
+                    });
+                }
+                for (let i = 0; i < 90; i++) {
+                    let t = Math.random() * 220 - 110;
+                    state.points.push({
+                        x: cx + 100 + t + gaussian(0, 12),
+                        y: cy + 40 + t * 0.5 + gaussian(0, 12),
+                        z: -t * 0.8 + gaussian(0, 15),
+                        cluster: -1
+                    });
+                }
+            } else if (type === 'circles') {
+                for (let i = 0; i < 40; i++) {
+                    let r = Math.random() * 35;
+                    let theta = Math.random() * Math.PI * 2;
+                    state.points.push({
+                        x: cx + r * Math.cos(theta),
+                        y: cy + r * Math.sin(theta),
+                        z: gaussian(0, 20),
+                        cluster: -1
+                    });
+                }
+                for (let i = 0; i < 110; i++) {
+                    let r = 130 + gaussian(0, 8);
+                    let theta = Math.random() * Math.PI * 2;
+                    state.points.push({
+                        x: cx + r * Math.cos(theta),
+                        y: cy + r * Math.sin(theta),
+                        z: gaussian(0, 40),
+                        cluster: -1
+                    });
+                }
+            } else if (type === 'noise') {
+                for (let i = 0; i < 140; i++) {
+                    state.points.push({
+                        x: Math.random() * (w - 80) + 40,
+                        y: Math.random() * (h - 80) + 40,
+                        z: Math.random() * 300 - 150,
+                        cluster: -1
+                    });
+                }
+            }
+
+            initAlgoState();
+            updateUIReadouts();
+            draw();
+        }
+
+        // Helper Gaussian & Clamp
+        function gaussian(mean, std) {
+            let u1 = Math.random(), u2 = Math.random();
+            let z = Math.sqrt(-2.0 * Math.log(u1)) * Math.cos(2.0 * Math.PI * u2);
+            return mean + z * std;
+        }
+        function clamp(v, min, max) { return Math.max(min, Math.min(max, v)); }
+
+        // --- DISTANCE CALCULATION (2D vs 3D) ---
+        function getDistance(p1, p2) {
+            if (state.viewDim === '3D') {
+                return Math.hypot(p1.x - p2.x, p1.y - p2.y, p1.z - p2.z);
+            }
+            return Math.hypot(p1.x - p2.x, p1.y - p2.y);
+        }
+
+        // --- ALGORITHM LOGIC ---
+
+        function initAlgoState() {
+            state.kmeans.step = 0;
+            state.kmeans.converged = false;
+            state.dbscan.step = 0;
+            state.dbscan.visited.clear();
+            
+            state.points.forEach(p => p.cluster = -1);
+
+            if (state.algorithm === 'kmeans') {
+                state.centroids = [];
+                const k = state.kmeans.k;
+                if (state.points.length > 0) {
+                    let shuffled = [...state.points].sort(() => 0.5 - Math.random());
+                    for (let i = 0; i < Math.min(k, shuffled.length); i++) {
+                        state.centroids.push({
+                            x: shuffled[i].x,
+                            y: shuffled[i].y,
+                            z: shuffled[i].z || 0,
+                            prevX: shuffled[i].x,
+                            prevY: shuffled[i].y,
+                            prevZ: shuffled[i].z || 0,
+                            color: CLUSTER_COLORS[i % CLUSTER_COLORS.length]
+                        });
+                    }
+                }
+            } else if (state.algorithm === 'hierarchical') {
+                buildHierarchicalTree();
+            }
+        }
+
+        // K-MEANS STEP
+        function stepKMeans() {
+            if (state.centroids.length === 0 || state.kmeans.converged) return;
+
+            state.kmeans.step++;
+
+            // Step 1: Assign points
+            state.points.forEach(p => {
+                let minDist = Infinity;
+                let closest = -1;
+                state.centroids.forEach((c, idx) => {
+                    let d = getDistance(p, c);
+                    if (d < minDist) {
+                        minDist = d;
+                        closest = idx;
+                    }
+                });
+                p.cluster = closest;
+            });
+
+            // Step 2: Update centroid locations
+            let totalShift = 0;
+            state.centroids.forEach((c, idx) => {
+                c.prevX = c.x;
+                c.prevY = c.y;
+                c.prevZ = c.z;
+
+                let pts = state.points.filter(p => p.cluster === idx);
+                if (pts.length > 0) {
+                    let meanX = pts.reduce((sum, p) => sum + p.x, 0) / pts.length;
+                    let meanY = pts.reduce((sum, p) => sum + p.y, 0) / pts.length;
+                    let meanZ = pts.reduce((sum, p) => sum + (p.z || 0), 0) / pts.length;
+
+                    totalShift += getDistance(c, { x: meanX, y: meanY, z: meanZ });
+                    c.x = meanX;
+                    c.y = meanY;
+                    c.z = meanZ;
+                }
+            });
+
+            if (totalShift < 0.5 && state.kmeans.step > 1) {
+                state.kmeans.converged = true;
+                stopAnimation();
+            }
+
+            updateUIReadouts();
+            draw();
+        }
+
+        // DBSCAN COMPUTATION
+        function runDBSCAN() {
+            const eps = state.dbscan.eps;
+            const minPts = state.dbscan.minPts;
+            const pts = state.points;
+            let clusterId = 0;
+
+            pts.forEach(p => {
+                p.cluster = -1;
+                p.coreType = 'noise';
+            });
+
+            const neighborsMap = pts.map(p => {
+                return pts.filter(other => getDistance(p, other) <= eps);
+            });
+
+            const visited = new Array(pts.length).fill(false);
+
+            for (let i = 0; i < pts.length; i++) {
+                if (visited[i]) continue;
+                visited[i] = true;
+
+                let neighbors = neighborsMap[i];
+
+                if (neighbors.length < minPts) {
+                    pts[i].cluster = -1;
+                    pts[i].coreType = 'noise';
+                } else {
+                    pts[i].coreType = 'core';
+                    pts[i].cluster = clusterId;
+
+                    let queue = [...neighbors];
+                    for (let j = 0; j < queue.length; j++) {
+                        let qPoint = queue[j];
+                        let qIdx = pts.indexOf(qPoint);
+
+                        if (!visited[qIdx]) {
+                            visited[qIdx] = true;
+                            let qNeighbors = neighborsMap[qIdx];
+                            if (qNeighbors.length >= minPts) {
+                                qPoint.coreType = 'core';
+                                queue.push(...qNeighbors.filter(qn => !queue.includes(qn)));
+                            } else {
+                                qPoint.coreType = 'border';
+                            }
+                        }
+                        if (qPoint.cluster === -1) {
+                            qPoint.cluster = clusterId;
+                            if (qPoint.coreType !== 'core') qPoint.coreType = 'border';
+                        }
+                    }
+                    clusterId++;
+                }
+            }
+
+            state.dbscan.step = 1;
+            updateUIReadouts();
+            draw();
+        }
+
+        // HIERARCHICAL AGGLOMERATIVE BUILDING
+        function buildHierarchicalTree() {
+            const pts = state.points;
+            if (pts.length === 0) return;
+
+            let clusters = pts.map((p, idx) => [{ id: idx, x: p.x, y: p.y, z: p.z || 0 }]);
+            state.hierarchical.history = [];
+
+            function clusterDist(c1, c2, mode) {
+                let distances = [];
+                c1.forEach(p1 => {
+                    c2.forEach(p2 => {
+                        distances.push(getDistance(p1, p2));
+                    });
+                });
+                if (mode === 'single') return Math.min(...distances);
+                if (mode === 'complete') return Math.max(...distances);
+                if (mode === 'average') return distances.reduce((a, b) => a + b, 0) / distances.length;
+            }
+
+            let history = [];
+            while (clusters.length > 1) {
+                let minD = Infinity;
+                let mergeI = 0, mergeJ = 1;
+
+                for (let i = 0; i < clusters.length; i++) {
+                    for (let j = i + 1; j < clusters.length; j++) {
+                        let d = clusterDist(clusters[i], clusters[j], state.hierarchical.linkage);
+                        if (d < minD) {
+                            minD = d;
+                            mergeI = i;
+                            mergeJ = j;
+                        }
+                    }
+                }
+
+                history.push({
+                    c1: [...clusters[mergeI]],
+                    c2: [...clusters[mergeJ]],
+                    distance: minD,
+                    remainingCount: clusters.length - 1
+                });
+
+                clusters[mergeI] = clusters[mergeI].concat(clusters[mergeJ]);
+                clusters.splice(mergeJ, 1);
+            }
+
+            state.hierarchical.history = history;
+            applyHierarchicalClusters();
+        }
+
+        function applyHierarchicalClusters() {
+            const targetK = state.hierarchical.targetK;
+            const pts = state.points;
+            if (pts.length === 0) return;
+
+            let clusters = pts.map((p, idx) => [idx]);
+
+            let mergesToPerform = pts.length - targetK;
+            mergesToPerform = Math.max(0, Math.min(mergesToPerform, state.hierarchical.history.length));
+
+            for (let step = 0; step < mergesToPerform; step++) {
+                let hStep = state.hierarchical.history[step];
+                let ids1 = new Set(hStep.c1.map(p => p.id));
+                let ids2 = new Set(hStep.c2.map(p => p.id));
+
+                let idx1 = clusters.findIndex(c => c.some(id => ids1.has(id)));
+                let idx2 = clusters.findIndex(c => c.some(id => ids2.has(id)));
+
+                if (idx1 !== -1 && idx2 !== -1 && idx1 !== idx2) {
+                    clusters[idx1] = clusters[idx1].concat(clusters[idx2]);
+                    clusters.splice(idx2, 1);
+                }
+            }
+
+            clusters.forEach((c, cIdx) => {
+                c.forEach(ptIdx => {
+                    pts[ptIdx].cluster = cIdx;
+                });
+            });
+
+            updateUIReadouts();
+            draw();
+            drawDendrogram();
+        }
+
+        // --- PSEUDO 3D PROJECTION ENGINE ---
+        function project3D(x, y, z, width, height) {
+            const cx = width / 2;
+            const cy = height / 2;
+
+            // Center coordinate space
+            let px = x - cx;
+            let py = y - cy;
+            let pz = z;
+
+            // Rotate Y (yaw)
+            let cosY = Math.cos(state.camera3D.rotY);
+            let sinY = Math.sin(state.camera3D.rotY);
+            let rx = px * cosY - pz * sinY;
+            let rz = px * sinY + pz * cosY;
+
+            // Rotate X (pitch)
+            let cosX = Math.cos(state.camera3D.rotX);
+            let sinX = Math.sin(state.camera3D.rotX);
+            let ry = py * cosX - rz * sinX;
+            rz = py * sinX + rz * cosX;
+
+            // Perspective scale factor
+            const focalLength = 400;
+            const scale = focalLength / (focalLength + rz + 200);
+
+            return {
+                projX: cx + rx * scale,
+                projY: cy + ry * scale,
+                scale: scale,
+                depth: rz
+            };
+        }
+
+        // --- METRICS CALCULATION ---
+        function calculateWCSS() {
+            if (state.algorithm !== 'kmeans' || state.centroids.length === 0) return 0;
+            let wcss = 0;
+            state.points.forEach(p => {
+                if (p.cluster >= 0 && state.centroids[p.cluster]) {
+                    let c = state.centroids[p.cluster];
+                    let d = getDistance(p, c);
+                    wcss += Math.pow(d, 2);
+                }
+            });
+            return Math.round(wcss / 100);
+        }
+
+        function calculateSilhouette() {
+            const pts = state.points.filter(p => p.cluster >= 0);
+            if (pts.length < 2) return 0;
+
+            let totalS = 0;
+            const sample = pts.length > 150 ? pts.filter(() => Math.random() < 0.5) : pts;
+
+            sample.forEach(p => {
+                const sameCluster = sample.filter(o => o.cluster === p.cluster && o !== p);
+                if (sameCluster.length === 0) return;
+
+                let a = sameCluster.reduce((sum, o) => sum + getDistance(p, o), 0) / sameCluster.length;
+
+                let b = Infinity;
+                const otherClusters = [...new Set(sample.map(o => o.cluster))].filter(c => c !== p.cluster);
+
+                otherClusters.forEach(c => {
+                    const cPoints = sample.filter(o => o.cluster === c);
+                    if (cPoints.length > 0) {
+                        let dist = cPoints.reduce((sum, o) => sum + getDistance(p, o), 0) / cPoints.length;
+                        if (dist < b) b = dist;
+                    }
+                });
+
+                if (b === Infinity) b = a;
+                let s = (b - a) / Math.max(a, b);
+                totalS += isNaN(s) ? 0 : s;
+            });
+
+            return (totalS / sample.length).toFixed(2);
+        }
+
+        // --- RENDER & CANVAS DRAWING ---
+        function draw() {
+            if (!ctx) return;
+            const w = canvas.width;
+            const h = canvas.height;
+
+            // Auto-rotate 3D camera
+            if (state.viewDim === '3D' && state.camera3D.autoRotate && !state.camera3D.isDragging) {
+                state.camera3D.rotY += 0.005;
+            }
+
+            // Clear Background
+            ctx.fillStyle = '#05070c';
+            ctx.fillRect(0, 0, w, h);
+
+            if (state.viewDim === '2D') {
+                // Subtle Gridlines
+                ctx.strokeStyle = 'rgba(255, 255, 255, 0.03)';
+                ctx.lineWidth = 1;
+                const gridSize = 40;
+                for (let x = 0; x < w; x += gridSize) {
+                    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+                }
+                for (let y = 0; y < h; y += gridSize) {
+                    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+                }
+
+                // 1. Draw Voronoi Background (K-Means 2D)
+                if (state.algorithm === 'kmeans' && state.kmeans.showVoronoi && state.centroids.length > 0) {
+                    drawVoronoiBackground();
+                }
+
+                // 2. Draw Points & DBSCAN Halos (2D)
+                state.points.forEach(p => {
+                    if (state.algorithm === 'dbscan' && state.hoverPoint === p && document.getElementById('check-halos').checked) {
+                        ctx.beginPath();
+                        ctx.arc(p.x, p.y, state.dbscan.eps, 0, Math.PI * 2);
+                        ctx.fillStyle = 'rgba(56, 189, 248, 0.08)';
+                        ctx.fill();
+                        ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+                        ctx.lineWidth = 1.5;
+                        ctx.stroke();
+                    }
+
+                    let color = p.cluster >= 0 ? CLUSTER_COLORS[p.cluster % CLUSTER_COLORS.length] : NOISE_COLOR;
+
+                    ctx.beginPath();
+                    ctx.arc(p.x, p.y, p === state.hoverPoint ? 7 : 5, 0, Math.PI * 2);
+                    ctx.fillStyle = color;
+                    ctx.fill();
+
+                    if (state.algorithm === 'dbscan') {
+                        if (p.coreType === 'core') {
+                            ctx.strokeStyle = '#ffffff';
+                            ctx.lineWidth = 1.5;
+                            ctx.stroke();
+                        } else if (p.coreType === 'noise') {
+                            ctx.strokeStyle = '#ef4444';
+                            ctx.lineWidth = 1;
+                            ctx.stroke();
+                        }
+                    }
+                });
+
+                // 3. Draw Centroids (2D)
+                if (state.algorithm === 'kmeans') {
+                    state.centroids.forEach((c, idx) => {
+                        if (state.kmeans.showVectors && (c.x !== c.prevX || c.y !== c.prevY)) {
+                            ctx.beginPath();
+                            ctx.moveTo(c.prevX, c.prevY);
+                            ctx.lineTo(c.x, c.y);
+                            ctx.strokeStyle = c.color;
+                            ctx.lineWidth = 2;
+                            ctx.setLineDash([4, 4]);
+                            ctx.stroke();
+                            ctx.setLineDash([]);
+                        }
+
+                        ctx.shadowColor = c.color;
+                        ctx.shadowBlur = 12;
+
+                        ctx.beginPath();
+                        ctx.arc(c.x, c.y, 10, 0, Math.PI * 2);
+                        ctx.fillStyle = c.color;
+                        ctx.fill();
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 2.5;
+                        ctx.stroke();
+
+                        ctx.fillStyle = '#000000';
+                        ctx.font = 'bold 10px monospace';
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.fillText(`K${idx + 1}`, c.x, c.y);
+
+                        ctx.shadowBlur = 0;
+                    });
+                }
+            } else {
+                // --- 3D RENDERING ---
+                // Draw 3D Axis Wireframe Box
+                const cx = w / 2, cy = h / 2;
+                const axisOrigin = project3D(cx - 150, cy + 100, -150, w, h);
+                const xAxis = project3D(cx + 150, cy + 100, -150, w, h);
+                const yAxis = project3D(cx - 150, cy - 100, -150, w, h);
+                const zAxis = project3D(cx - 150, cy + 100, 150, w, h);
+
+                ctx.lineWidth = 1.5;
+                // X Axis (Red/Cyan)
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+                ctx.beginPath(); ctx.moveTo(axisOrigin.projX, axisOrigin.projY); ctx.lineTo(xAxis.projX, xAxis.projY); ctx.stroke();
+                // Y Axis (Green/Cyan)
+                ctx.strokeStyle = 'rgba(56, 189, 248, 0.4)';
+                ctx.beginPath(); ctx.moveTo(axisOrigin.projX, axisOrigin.projY); ctx.lineTo(yAxis.projX, yAxis.projY); ctx.stroke();
+                // Z Axis (Purple)
+                ctx.strokeStyle = 'rgba(192, 132, 252, 0.5)';
+                ctx.beginPath(); ctx.moveTo(axisOrigin.projX, axisOrigin.projY); ctx.lineTo(zAxis.projX, zAxis.projY); ctx.stroke();
+
+                // Depth Sort Points & Centroids
+                let drawQueue = [];
+
+                state.points.forEach(p => {
+                    let proj = project3D(p.x, p.y, p.z || 0, w, h);
+                    drawQueue.push({ type: 'point', p: p, proj: proj, depth: proj.depth });
+                });
+
+                if (state.algorithm === 'kmeans') {
+                    state.centroids.forEach((c, idx) => {
+                        let proj = project3D(c.x, c.y, c.z || 0, w, h);
+                        drawQueue.push({ type: 'centroid', c: c, idx: idx, proj: proj, depth: proj.depth });
+                    });
+                }
+
+                drawQueue.sort((a, b) => b.depth - a.depth);
+
+                // Render Queue
+                drawQueue.forEach(item => {
+                    if (item.type === 'point') {
+                        let p = item.p;
+                        let proj = item.proj;
+                        let radius = Math.max(1.5, 4.5 * proj.scale);
+                        let color = p.cluster >= 0 ? CLUSTER_COLORS[p.cluster % CLUSTER_COLORS.length] : NOISE_COLOR;
+
+                        ctx.beginPath();
+                        ctx.arc(proj.projX, proj.projY, radius, 0, Math.PI * 2);
+                        ctx.fillStyle = color;
+                        ctx.globalAlpha = clamp(proj.scale * 0.9, 0.25, 1);
+                        ctx.fill();
+                        ctx.globalAlpha = 1.0;
+                    } else if (item.type === 'centroid') {
+                        let c = item.c;
+                        let proj = item.proj;
+                        let radius = Math.max(4, 9 * proj.scale);
+
+                        ctx.beginPath();
+                        ctx.arc(proj.projX, proj.projY, radius, 0, Math.PI * 2);
+                        ctx.fillStyle = c.color;
+                        ctx.fill();
+                        ctx.strokeStyle = '#ffffff';
+                        ctx.lineWidth = 2;
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            if (state.viewDim === '3D' && state.camera3D.autoRotate && state.isPlaying) {
+                requestAnimationFrame(draw);
+            }
+        }
+
+        // Voronoi Cell Background approximation for K-Means (2D)
+        function drawVoronoiBackground() {
+            const step = 8;
+            const w = canvas.width;
+            const h = canvas.height;
+
+            for (let x = 0; x < w; x += step) {
+                for (let y = 0; y < h; y += step) {
+                    let minD = Infinity;
+                    let closestIdx = 0;
+                    state.centroids.forEach((c, idx) => {
+                        let d = Math.hypot(x - c.x, y - c.y);
+                        if (d < minD) {
+                            minD = d;
+                            closestIdx = idx;
+                        }
+                    });
+
+                    ctx.fillStyle = CLUSTER_COLORS[closestIdx % CLUSTER_COLORS.length] + '0d';
+                    ctx.fillRect(x, y, step, step);
+                }
+            }
+        }
+
+        // Render Dendrogram Tree View (for Hierarchical)
+        function drawDendrogram() {
+            if (!dendroCtx) return;
+            const w = dendroCanvas.width;
+            const h = dendroCanvas.height;
+
+            dendroCtx.fillStyle = '#030712';
+            dendroCtx.fillRect(0, 0, w, h);
+
+            if (state.algorithm !== 'hierarchical' || state.hierarchical.history.length === 0) {
+                dendroCtx.fillStyle = '#475569';
+                dendroCtx.font = '11px JetBrains Mono';
+                dendroCtx.textAlign = 'center';
+                dendroCtx.fillText('Hierarchical Dendrogram', w / 2, h / 2);
+                return;
+            }
+
+            const history = state.hierarchical.history;
+            const maxDist = Math.max(...history.map(h => h.distance)) || 1;
+
+            dendroCtx.strokeStyle = '#38bdf8';
+            dendroCtx.lineWidth = 1.2;
+
+            const stepW = w / (history.length + 1);
+            history.forEach((step, idx) => {
+                let x = (idx + 1) * stepW;
+                let heightY = h - (step.distance / maxDist) * (h - 20) - 10;
+
+                dendroCtx.beginPath();
+                dendroCtx.moveTo(x, h);
+                dendroCtx.lineTo(x, heightY);
+                dendroCtx.stroke();
+            });
+
+            const currentCutoffDist = history[Math.max(0, history.length - state.hierarchical.targetK)]?.distance || 0;
+            const cutoffY = h - (currentCutoffDist / maxDist) * (h - 20) - 10;
+
+            dendroCtx.strokeStyle = '#ef4444';
+            dendroCtx.setLineDash([3, 3]);
+            dendroCtx.beginPath();
+            dendroCtx.moveTo(0, cutoffY);
+            dendroCtx.lineTo(w, cutoffY);
+            dendroCtx.stroke();
+            dendroCtx.setLineDash([]);
+        }
+
+        // --- UI & READOUT UPDATES ---
+        function updateUIReadouts() {
+            document.getElementById('point-count-badge').innerText = `${state.points.length} pts`;
+            
+            const sil = calculateSilhouette();
+            document.getElementById('metric-silhouette').innerText = sil;
+
+            const stepText = state.algorithm === 'kmeans' ? state.kmeans.step : 
+                            (state.algorithm === 'dbscan' ? state.dbscan.step : state.hierarchical.targetK);
+            document.getElementById('step-counter').innerText = state.algorithm === 'hierarchical' ? `Clusters: ${stepText}` : `Step: ${stepText}`;
+
+            const secTitle = document.getElementById('metric-sec-title');
+            const secVal = document.getElementById('metric-sec-value');
+            const secDesc = document.getElementById('metric-sec-desc');
+
+            if (state.algorithm === 'kmeans') {
+                secTitle.innerText = 'WCSS (Inertia)';
+                secVal.innerText = calculateWCSS();
+                secDesc.innerText = 'Sum of Squared Dist';
+            } else if (state.algorithm === 'dbscan') {
+                secTitle.innerText = 'Noise Points';
+                const noiseCount = state.points.filter(p => p.cluster === -1).length;
+                const noisePct = state.points.length ? Math.round((noiseCount / state.points.length) * 100) : 0;
+                secVal.innerText = `${noiseCount} (${noisePct}%)`;
+                secDesc.innerText = 'Outliers / Noise';
+            } else {
+                secTitle.innerText = 'Tree Merges';
+                secVal.innerText = state.hierarchical.history.length;
+                secDesc.innerText = 'Hierarchical Pairs';
+            }
+
+            const legendContainer = document.getElementById('legend-container');
+            legendContainer.innerHTML = '';
+            
+            const activeClusters = [...new Set(state.points.map(p => p.cluster))].filter(c => c >= 0).sort((a,b)=>a-b);
+            activeClusters.forEach(cIdx => {
+                const badge = document.createElement('div');
+                badge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 border border-white/10';
+                badge.style.backgroundColor = CLUSTER_COLORS[cIdx % CLUSTER_COLORS.length] + '25';
+                badge.style.color = CLUSTER_COLORS[cIdx % CLUSTER_COLORS.length];
+                badge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full inline-block" style="background:${CLUSTER_COLORS[cIdx % CLUSTER_COLORS.length]}"></span> C${cIdx + 1}`;
+                legendContainer.appendChild(badge);
+            });
+
+            if (state.points.some(p => p.cluster === -1)) {
+                const noiseBadge = document.createElement('div');
+                noiseBadge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold flex items-center gap-1 border border-slate-700 bg-slate-800 text-slate-400';
+                noiseBadge.innerHTML = `<span class="w-1.5 h-1.5 rounded-full inline-block bg-slate-500"></span> Noise`;
+                legendContainer.appendChild(noiseBadge);
+            }
+        }
+
+        // --- ANIMATION STEPPER CONTROL ---
+        function step() {
+            if (state.algorithm === 'kmeans') {
+                stepKMeans();
+            } else if (state.algorithm === 'dbscan') {
+                runDBSCAN();
+            } else if (state.algorithm === 'hierarchical') {
+                state.hierarchical.targetK = Math.max(1, state.hierarchical.targetK - 1);
+                document.getElementById('slider-h-k').value = state.hierarchical.targetK;
+                document.getElementById('val-h-k').innerText = state.hierarchical.targetK;
+                applyHierarchicalClusters();
+            }
+        }
+
+        function togglePlay() {
+            if (state.isPlaying) {
+                stopAnimation();
+            } else {
+                state.isPlaying = true;
+                document.getElementById('btn-play').innerText = 'Pause';
+                document.getElementById('btn-play').className = 'flex-1 py-2 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition shadow-lg shadow-amber-900/40';
+                state.timer = setInterval(() => {
+                    step();
+                    if (state.kmeans.converged || (state.algorithm === 'hierarchical' && state.hierarchical.targetK <= 1)) {
+                        stopAnimation();
+                    }
+                }, 600);
+            }
+        }
+
+        function stopAnimation() {
+            state.isPlaying = false;
+            if (state.timer) clearInterval(state.timer);
+            document.getElementById('btn-play').innerText = 'Play';
+            document.getElementById('btn-play').className = 'flex-1 py-2 rounded bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs transition shadow-lg shadow-emerald-900/40';
+        }
+
+        // --- INTERACTIVE EVENT LISTENERS ---
+        
+        let draggedCentroid = null;
+
+        canvas.addEventListener('mousedown', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (state.viewDim === '3D') {
+                state.camera3D.isDragging = true;
+                state.camera3D.lastMouseX = e.clientX;
+                state.camera3D.lastMouseY = e.clientY;
+                return;
+            }
+
+            if (state.algorithm === 'kmeans') {
+                const found = state.centroids.find(c => Math.hypot(c.x - mouseX, c.y - mouseY) < 15);
+                if (found) {
+                    draggedCentroid = found;
+                    return;
+                }
+            }
+
+            state.points.push({ x: mouseX, y: mouseY, z: Math.random() * 200 - 100, cluster: -1 });
+            if (state.algorithm === 'dbscan') runDBSCAN();
+            else if (state.algorithm === 'hierarchical') buildHierarchicalTree();
+            else updateUIReadouts();
+            draw();
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            if (state.viewDim === '3D' && state.camera3D.isDragging) {
+                const deltaX = e.clientX - state.camera3D.lastMouseX;
+                const deltaY = e.clientY - state.camera3D.lastMouseY;
+                state.camera3D.rotY += deltaX * 0.01;
+                state.camera3D.rotX += deltaY * 0.01;
+                state.camera3D.lastMouseX = e.clientX;
+                state.camera3D.lastMouseY = e.clientY;
+                draw();
+                return;
+            }
+
+            state.hoverPoint = state.points.find(p => Math.hypot(p.x - mouseX, p.y - mouseY) < 10) || null;
+
+            if (draggedCentroid) {
+                draggedCentroid.x = mouseX;
+                draggedCentroid.y = mouseY;
+                state.kmeans.converged = false;
+                draw();
+            } else {
+                draw();
+            }
+        });
+
+        window.addEventListener('mouseup', () => {
+            draggedCentroid = null;
+            state.camera3D.isDragging = false;
+        });
+
+        // 2D vs 3D Dimension Switcher
+        document.getElementById('view-2d').addEventListener('click', () => {
+            state.viewDim = '2D';
+            document.getElementById('view-2d').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+            document.getElementById('view-3d').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all text-slate-400 hover:text-slate-200';
+            document.getElementById('axis-z-container').classList.add('hidden');
+            document.getElementById('controls-3d-hud').classList.add('hidden');
+            document.getElementById('canvas-helper-text').innerText = '[ Click canvas to insert data point ]';
+            initAlgoState();
+            if (state.algorithm === 'dbscan') runDBSCAN();
+            draw();
+        });
+
+        document.getElementById('view-3d').addEventListener('click', () => {
+            state.viewDim = '3D';
+            document.getElementById('view-3d').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+            document.getElementById('view-2d').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all text-slate-400 hover:text-slate-200';
+            document.getElementById('axis-z-container').classList.remove('hidden');
+            document.getElementById('controls-3d-hud').classList.remove('hidden');
+            document.getElementById('canvas-helper-text').innerText = '[ Drag to rotate 3D view ]';
+            initAlgoState();
+            if (state.algorithm === 'dbscan') runDBSCAN();
+            draw();
+        });
+
+        document.getElementById('btn-toggle-autorotate').addEventListener('click', () => {
+            state.camera3D.autoRotate = !state.camera3D.autoRotate;
+            document.getElementById('btn-toggle-autorotate').innerText = state.camera3D.autoRotate ? '🔄 Auto-Rotate: ON' : '⏸ Auto-Rotate: OFF';
+            if (state.camera3D.autoRotate) draw();
+        });
+
+        document.getElementById('btn-reset-view').addEventListener('click', () => {
+            state.camera3D.rotX = 0.35;
+            state.camera3D.rotY = 0.65;
+            draw();
+        });
+
+        // Context Mode Switch (Abstract vs E-Commerce Retail)
+        document.getElementById('mode-abstract').addEventListener('click', () => {
+            state.mode = 'abstract';
+            document.getElementById('mode-abstract').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+            document.getElementById('mode-retail').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all text-slate-400 hover:text-slate-200';
+            document.getElementById('axis-x-label').innerText = 'Feature X (Normalized)';
+            document.getElementById('axis-y-label').innerText = 'Feature Y (Normalized)';
+            document.getElementById('axis-z-label').innerText = 'Feature Z (Normalized)';
+        });
+
+        document.getElementById('mode-retail').addEventListener('click', () => {
+            state.mode = 'retail';
+            document.getElementById('mode-retail').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+            document.getElementById('mode-abstract').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all text-slate-400 hover:text-slate-200';
+            document.getElementById('axis-x-label').innerText = 'Annual Spend ($k)';
+            document.getElementById('axis-y-label').innerText = 'Purchase Frequency / Yr';
+            document.getElementById('axis-z-label').innerText = 'Recency / CLV';
+        });
+
+        // Algorithm Buttons Switch
+        const algoBtns = {
+            kmeans: document.getElementById('algo-kmeans'),
+            dbscan: document.getElementById('algo-dbscan'),
+            hierarchical: document.getElementById('algo-hierarchical')
+        };
+        const panels = {
+            kmeans: document.getElementById('panel-kmeans'),
+            dbscan: document.getElementById('panel-dbscan'),
+            hierarchical: document.getElementById('panel-hierarchical')
+        };
+
+        Object.keys(algoBtns).forEach(algoKey => {
+            algoBtns[algoKey].addEventListener('click', () => {
+                state.algorithm = algoKey;
+                stopAnimation();
+
+                Object.keys(algoBtns).forEach(k => {
+                    algoBtns[k].className = k === algoKey 
+                        ? 'py-1.5 rounded transition text-center bg-cyan-500/20 text-cyan-300 border border-cyan-500/40 font-bold'
+                        : 'py-1.5 rounded transition text-center text-slate-400 hover:text-slate-200';
+                    panels[k].classList.toggle('hidden', k !== algoKey);
+                });
+
+                initAlgoState();
+                if (algoKey === 'dbscan') runDBSCAN();
+                else if (algoKey === 'hierarchical') buildHierarchicalTree();
+                else updateUIReadouts();
+                draw();
+            });
+        });
+
+        // Presets
+        document.getElementById('preset-ecommerce').addEventListener('click', () => generateDataset('ecommerce'));
+        document.getElementById('preset-anisotropic').addEventListener('click', () => generateDataset('anisotropic'));
+        document.getElementById('preset-circles').addEventListener('click', () => generateDataset('circles'));
+        document.getElementById('preset-noise').addEventListener('click', () => generateDataset('noise'));
+
+        document.getElementById('btn-add-random').addEventListener('click', () => {
+            const w = canvas.width || 600;
+            const h = canvas.height || 400;
+            for (let i = 0; i < 50; i++) {
+                state.points.push({
+                    x: Math.random() * (w - 80) + 40,
+                    y: Math.random() * (h - 80) + 40,
+                    z: Math.random() * 300 - 150,
+                    cluster: -1
+                });
+            }
+            initAlgoState();
+            if (state.algorithm === 'dbscan') runDBSCAN();
+            draw();
+        });
+
+        document.getElementById('btn-clear-data').addEventListener('click', () => {
+            state.points = [];
+            state.centroids = [];
+            initAlgoState();
+            updateUIReadouts();
+            draw();
+        });
+
+        // K-Means Hyperparameters
+        document.getElementById('slider-k').addEventListener('input', (e) => {
+            state.kmeans.k = parseInt(e.target.value);
+            document.getElementById('val-k').innerText = state.kmeans.k;
+            initAlgoState();
+            draw();
+        });
+        document.getElementById('check-voronoi').addEventListener('change', (e) => {
+            state.kmeans.showVoronoi = e.target.checked;
+            draw();
+        });
+        document.getElementById('check-vectors').addEventListener('change', (e) => {
+            state.kmeans.showVectors = e.target.checked;
+            draw();
+        });
+
+        // DBSCAN Hyperparameters
+        document.getElementById('slider-eps').addEventListener('input', (e) => {
+            state.dbscan.eps = parseInt(e.target.value);
+            document.getElementById('val-eps').innerText = state.dbscan.eps;
+            if (state.algorithm === 'dbscan') runDBSCAN();
+        });
+        document.getElementById('slider-minpts').addEventListener('input', (e) => {
+            state.dbscan.minPts = parseInt(e.target.value);
+            document.getElementById('val-minpts').innerText = state.dbscan.minPts;
+            if (state.algorithm === 'dbscan') runDBSCAN();
+        });
+
+        // Hierarchical Hyperparameters
+        document.getElementById('select-linkage').addEventListener('change', (e) => {
+            state.hierarchical.linkage = e.target.value;
+            if (state.algorithm === 'hierarchical') buildHierarchicalTree();
+        });
+        document.getElementById('slider-h-k').addEventListener('input', (e) => {
+            state.hierarchical.targetK = parseInt(e.target.value);
+            document.getElementById('val-h-k').innerText = state.hierarchical.targetK;
+            if (state.algorithm === 'hierarchical') applyHierarchicalClusters();
+        });
+
+        // Controls
+        document.getElementById('btn-step').addEventListener('click', step);
+        document.getElementById('btn-play').addEventListener('click', togglePlay);
+        document.getElementById('btn-reset').addEventListener('click', () => {
+            initAlgoState();
+            if (state.algorithm === 'dbscan') runDBSCAN();
+            draw();
+        });
+
+        // INITIAL LOAD
+        window.onload = () => {
+            resizeCanvas();
+            generateDataset('ecommerce');
+        };
+    </script>
+</body>
+</html>

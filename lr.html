@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Linear Regression Demo</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #0f172a;
+            color: #f8fafc;
+        }
+        .glass-panel {
+            background: rgba(30, 41, 59, 0.7);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+        #regressionCanvas {
+            cursor: crosshair;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between p-4 sm:p-6 selection:bg-blue-500 selection:text-white">
+
+    <!-- Header -->
+    <header class="max-w-6xl mx-auto w-full flex items-center justify-between pb-4 border-b border-slate-800">
+        <div class="flex items-center gap-3">
+            <span class="text-xs font-bold px-2.5 py-1 rounded-md bg-blue-500/20 text-blue-400 border border-blue-500/30">Linear Regression</span>
+            <h1 class="text-base font-bold text-white tracking-tight">Predicting Test Scores vs. Hours Studied</h1>
+        </div>
+
+        <!-- Presets & Actions -->
+        <div class="flex items-center gap-2">
+            <button onclick="loadPreset('strong')" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition border border-slate-700">
+                Sample Class Data
+            </button>
+            <button onclick="loadPreset('weak')" class="text-xs px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 transition border border-slate-700">
+                Low Correlation
+            </button>
+            <button onclick="clearPoints()" class="text-xs px-2.5 py-1.5 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 transition border border-rose-500/20 ml-2" title="Clear all points">
+                <i data-lucide="trash-2" class="w-4 h-4"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Live Workspace -->
+    <main class="max-w-6xl mx-auto w-full flex-grow my-4 grid grid-cols-1 lg:grid-cols-12 gap-5 items-start">
+
+        <!-- Left Column: Interactive Graph Canvas (8 cols) -->
+        <div class="lg:col-span-8 flex flex-col gap-3">
+            <div class="glass-panel p-4 rounded-2xl relative shadow-xl">
+                
+                <!-- Canvas -->
+                <div class="relative w-full aspect-[16/10]">
+                    <canvas id="regressionCanvas" class="w-full h-full rounded-xl bg-slate-950 border border-slate-800"></canvas>
+                </div>
+
+                <!-- Subtle Controls Overlay & Legend below graph -->
+                <div class="flex flex-wrap items-center justify-between pt-3 text-xs text-slate-400 gap-3">
+                    <div class="flex items-center gap-4">
+                        <label class="flex items-center gap-2 cursor-pointer select-none hover:text-slate-200">
+                            <input type="checkbox" id="residualToggle" checked onchange="redrawCanvas()" class="w-4 h-4 accent-rose-500 rounded">
+                            <span class="flex items-center gap-1.5">
+                                <span class="w-2.5 h-0.5 bg-rose-500 border border-rose-500 border-dashed inline-block"></span>
+                                Show Residual Errors
+                            </span>
+                        </label>
+                        <span class="flex items-center gap-1.5 text-amber-400">
+                            <span class="w-2 h-2 rounded-full bg-amber-400 inline-block animate-pulse"></span>
+                            Prediction Point
+                        </span>
+                    </div>
+                    <span class="text-[11px] text-slate-500">Click canvas to add • Drag point to adjust • Right-click to delete</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Right Column: Live Metrics & Continuous Predictor (4 cols) -->
+        <div class="lg:col-span-4 flex flex-col gap-4">
+
+            <!-- Dynamic Model Equation -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col gap-4">
+                <div class="text-xs font-semibold text-slate-400 uppercase tracking-wider">Model Equation</div>
+                
+                <!-- Equation Banner -->
+                <div id="equationDisplay" class="text-lg font-mono font-bold text-blue-400 tracking-tight bg-slate-950 p-3 rounded-xl border border-slate-800 text-center">
+                    Score = (0.00 × Hours) + 0.00
+                </div>
+
+                <!-- Parameters Grid -->
+                <div class="grid grid-cols-2 gap-2 text-center pt-1">
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 uppercase block font-semibold">Slope (m)</span>
+                        <span id="slopeVal" class="text-sm font-mono font-bold text-slate-200">0.00</span>
+                    </div>
+                    <div class="bg-slate-900/80 p-2.5 rounded-xl border border-slate-800">
+                        <span class="text-[10px] text-slate-400 uppercase block font-semibold">Intercept (c)</span>
+                        <span id="interceptVal" class="text-sm font-mono font-bold text-slate-200">0.00</span>
+                    </div>
+                </div>
+
+                <!-- Color-Coded R² Fitness Gauge -->
+                <div class="bg-slate-900/80 p-3.5 rounded-xl border border-slate-800 flex flex-col gap-2">
+                    <div class="flex justify-between items-center text-xs">
+                        <span class="text-slate-400 font-semibold uppercase text-[10px]">Goodness of Fit (R²)</span>
+                        <span id="r2Badge" class="font-mono font-bold px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                            R² = <span id="r2Val">0.00</span>
+                        </span>
+                    </div>
+                    <!-- Progress Bar Track -->
+                    <div class="w-full bg-slate-950 h-2.5 rounded-full overflow-hidden border border-slate-800">
+                        <div id="r2MeterBar" class="h-full bg-emerald-500 transition-all duration-300 rounded-full" style="width: 0%;"></div>
+                    </div>
+                    <div class="flex justify-between text-[10px] text-slate-500 font-medium">
+                        <span>Weak (0.0)</span>
+                        <span>Moderate (0.5)</span>
+                        <span>Strong (1.0)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Continuous Predictor Tool -->
+            <div class="glass-panel p-5 rounded-2xl flex flex-col gap-3">
+                <div class="text-xs font-semibold text-slate-300 flex items-center gap-1.5">
+                    <i data-lucide="calculator" class="w-4 h-4 text-amber-400"></i> Score Predictor
+                </div>
+
+                <div class="flex flex-col gap-3">
+                    <div>
+                        <div class="flex justify-between text-xs mb-1.5">
+                            <span class="text-slate-400">Hours Studied (X):</span>
+                            <span id="predictXVal" class="font-mono text-amber-400 font-bold">5.0 hrs</span>
+                        </div>
+                        <input type="range" id="predictSlider" min="0" max="10" step="0.1" value="5" oninput="redrawCanvas()" class="w-full accent-amber-400 bg-slate-800 h-2 rounded-lg cursor-pointer">
+                    </div>
+
+                    <div class="bg-slate-950 p-3.5 rounded-xl border border-slate-800 flex justify-between items-center">
+                        <span class="text-xs text-slate-400">Predicted Test Score (Y):</span>
+                        <span id="predictYVal" class="text-xl font-mono font-bold text-amber-400">0.0%</span>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </main>
+
+    <!-- Canvas Logic & Math -->
+    <script>
+        let dataPoints = [];
+        let draggedPointIndex = null;
+        let isDragging = false;
+
+        const canvas = document.getElementById('regressionCanvas');
+        const ctx = canvas.getContext('2d');
+        const residualToggle = document.getElementById('residualToggle');
+
+        window.onload = function() {
+            lucide.createIcons();
+            resizeCanvas();
+            window.addEventListener('resize', () => { resizeCanvas(); redrawCanvas(); });
+
+            canvas.addEventListener('mousedown', handlePointerDown);
+            canvas.addEventListener('mousemove', handlePointerMove);
+            canvas.addEventListener('mouseup', handlePointerUp);
+            canvas.addEventListener('contextmenu', handleRightClick);
+
+            // Touch Support
+            canvas.addEventListener('touchstart', (e) => {
+                const touch = e.touches[0];
+                handlePointerDown(new MouseEvent('mousedown', { clientX: touch.clientX, clientY: touch.clientY }));
+            }, {passive: false});
+
+            canvas.addEventListener('touchmove', (e) => {
+                const touch = e.touches[0];
+                handlePointerMove(new MouseEvent('mousemove', { clientX: touch.clientX, clientY: touch.clientY }));
+            }, {passive: false});
+
+            canvas.addEventListener('touchend', () => handlePointerUp());
+
+            loadPreset('strong');
+        };
+
+        function resizeCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = rect.width * dpr;
+            canvas.height = rect.height * dpr;
+            ctx.scale(dpr, dpr);
+        }
+
+        function loadPreset(type) {
+            if (type === 'strong') {
+                dataPoints = [
+                    { x: 1.0, y: 30 }, { x: 2.0, y: 42 }, { x: 3.5, y: 55 },
+                    { x: 5.0, y: 68 }, { x: 6.5, y: 78 }, { x: 8.0, y: 88 }, { x: 9.5, y: 96 }
+                ];
+            } else if (type === 'weak') {
+                dataPoints = [
+                    { x: 1.5, y: 75 }, { x: 2.5, y: 35 }, { x: 4.0, y: 85 },
+                    { x: 5.5, y: 45 }, { x: 7.0, y: 90 }, { x: 8.5, y: 30 }, { x: 9.5, y: 65 }
+                ];
+            }
+            redrawCanvas();
+        }
+
+        function valToPxX(val) {
+            const rect = canvas.getBoundingClientRect();
+            const padLeft = 55, padRight = 30;
+            return padLeft + (val / 10) * (rect.width - padLeft - padRight);
+        }
+
+        function valToPxY(val) {
+            const rect = canvas.getBoundingClientRect();
+            const padTop = 30, padBottom = 40;
+            return rect.height - padBottom - (val / 100) * (rect.height - padTop - padBottom);
+        }
+
+        function pxToValX(px) {
+            const rect = canvas.getBoundingClientRect();
+            const padLeft = 55, padRight = 30;
+            const val = ((px - padLeft) / (rect.width - padLeft - padRight)) * 10;
+            return Math.max(0, Math.min(10, val));
+        }
+
+        function pxToValY(py) {
+            const rect = canvas.getBoundingClientRect();
+            const padTop = 30, padBottom = 40;
+            const val = ((rect.height - padBottom - py) / (rect.height - padTop - padBottom)) * 100;
+            return Math.max(0, Math.min(100, val));
+        }
+
+        function calculateOLS() {
+            const n = dataPoints.length;
+            if (n < 2) return { slope: 0, intercept: 0, r2: 0 };
+
+            let sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+            for (let p of dataPoints) {
+                sumX += p.x; sumY += p.y;
+                sumXY += p.x * p.y; sumXX += p.x * p.x;
+            }
+
+            const meanX = sumX / n;
+            const meanY = sumY / n;
+            const den = (n * sumXX) - (sumX * sumX);
+            const slope = den !== 0 ? ((n * sumXY) - (sumX * sumY)) / den : 0;
+            const intercept = meanY - (slope * meanX);
+
+            let rss = 0, tss = 0;
+            for (let p of dataPoints) {
+                const predY = slope * p.x + intercept;
+                rss += Math.pow(p.y - predY, 2);
+                tss += Math.pow(p.y - meanY, 2);
+            }
+
+            let r2 = tss !== 0 ? Math.max(0, 1 - (rss / tss)) : 0;
+            return { slope, intercept, r2 };
+        }
+
+        function updateFitnessMeter(r2) {
+            const meterBar = document.getElementById('r2MeterBar');
+            const badge = document.getElementById('r2Badge');
+            const percent = Math.round(r2 * 100);
+            
+            meterBar.style.width = `${percent}%`;
+
+            if (r2 >= 0.75) {
+                meterBar.className = 'h-full bg-emerald-500 transition-all duration-300 rounded-full';
+                badge.className = 'font-mono font-bold px-2 py-0.5 rounded text-xs bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+            } else if (r2 >= 0.4) {
+                meterBar.className = 'h-full bg-amber-500 transition-all duration-300 rounded-full';
+                badge.className = 'font-mono font-bold px-2 py-0.5 rounded text-xs bg-amber-500/20 text-amber-400 border border-amber-500/30';
+            } else {
+                meterBar.className = 'h-full bg-rose-500 transition-all duration-300 rounded-full';
+                badge.className = 'font-mono font-bold px-2 py-0.5 rounded text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30';
+            }
+        }
+
+        function redrawCanvas() {
+            const rect = canvas.getBoundingClientRect();
+            ctx.clearRect(0, 0, rect.width, rect.height);
+
+            const stats = calculateOLS();
+
+            // Update Metrics Panel
+            document.getElementById('slopeVal').innerText = stats.slope.toFixed(2);
+            document.getElementById('interceptVal').innerText = stats.intercept.toFixed(2);
+            document.getElementById('r2Val').innerText = stats.r2.toFixed(2);
+            updateFitnessMeter(stats.r2);
+
+            const sign = stats.intercept >= 0 ? '+' : '-';
+            document.getElementById('equationDisplay').innerText = `Score = (${stats.slope.toFixed(2)} × Hours) ${sign} ${Math.abs(stats.intercept).toFixed(2)}`;
+
+            // Draw Grid & Axis Labels
+            drawAxesAndGrid(rect);
+
+            // Draw Residual Lines (Red vertical error lines)
+            if (residualToggle.checked && dataPoints.length > 0) {
+                ctx.save();
+                ctx.strokeStyle = '#f43f5e';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([3, 3]);
+
+                for (let p of dataPoints) {
+                    const px = valToPxX(p.x);
+                    const pyActual = valToPxY(p.y);
+                    const pyPred = valToPxY(stats.slope * p.x + stats.intercept);
+
+                    ctx.beginPath();
+                    ctx.moveTo(px, pyActual);
+                    ctx.lineTo(px, pyPred);
+                    ctx.stroke();
+                }
+                ctx.restore();
+            }
+
+            // Draw Linear Regression Best Fit Line
+            if (dataPoints.length > 0) {
+                ctx.save();
+                ctx.strokeStyle = '#3b82f6';
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                ctx.moveTo(valToPxX(0), valToPxY(stats.intercept));
+                ctx.lineTo(valToPxX(10), valToPxY(stats.slope * 10 + stats.intercept));
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            // Draw Active Prediction Marker (Amber point + projection guides)
+            const predX = parseFloat(document.getElementById('predictSlider').value);
+            const predY = Math.max(0, Math.min(100, stats.slope * predX + stats.intercept));
+
+            if (dataPoints.length > 0) {
+                ctx.save();
+                ctx.strokeStyle = '#fbbf24';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([4, 4]);
+
+                // Dashed guides to axes
+                ctx.beginPath();
+                ctx.moveTo(valToPxX(predX), valToPxY(0));
+                ctx.lineTo(valToPxX(predX), valToPxY(predY));
+                ctx.lineTo(valToPxX(0), valToPxY(predY));
+                ctx.stroke();
+
+                // Glowing Prediction Point
+                ctx.fillStyle = '#fbbf24';
+                ctx.shadowColor = '#fbbf24';
+                ctx.shadowBlur = 10;
+                ctx.beginPath();
+                ctx.arc(valToPxX(predX), valToPxY(predY), 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.restore();
+            }
+
+            // Draw Data Points (Students)
+            dataPoints.forEach((p, idx) => {
+                const px = valToPxX(p.x);
+                const py = valToPxY(p.y);
+
+                ctx.save();
+                ctx.beginPath();
+                ctx.arc(px, py, 6, 0, Math.PI * 2);
+                ctx.fillStyle = idx === draggedPointIndex ? '#60a5fa' : '#3b82f6';
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.fill();
+                ctx.stroke();
+                ctx.restore();
+            });
+
+            // Update Prediction Sidebar Values
+            document.getElementById('predictXVal').innerText = `${predX.toFixed(1)} hrs`;
+            document.getElementById('predictYVal').innerText = `${predY.toFixed(1)}%`;
+        }
+
+        function drawAxesAndGrid(rect) {
+            const padLeft = 55, padBottom = 40;
+            ctx.save();
+            ctx.strokeStyle = 'rgba(255, 255, 255, 0.05)';
+            ctx.lineWidth = 1;
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '11px Inter, sans-serif';
+
+            // Vertical Grid & X-Axis Labels (Hours Studied)
+            for (let i = 0; i <= 10; i += 2) {
+                const px = valToPxX(i);
+                ctx.beginPath(); ctx.moveTo(px, 15); ctx.lineTo(px, rect.height - padBottom); ctx.stroke();
+                ctx.textAlign = 'center'; ctx.fillText(`${i}h`, px, rect.height - padBottom + 16);
+            }
+
+            // Horizontal Grid & Y-Axis Labels (Test Score)
+            for (let i = 0; i <= 100; i += 20) {
+                const py = valToPxY(i);
+                ctx.beginPath(); ctx.moveTo(padLeft, py); ctx.lineTo(rect.width - 20, py); ctx.stroke();
+                ctx.textAlign = 'right'; ctx.fillText(`${i}%`, padLeft - 10, py + 4);
+            }
+
+            // Axis Title Labels
+            ctx.fillStyle = '#64748b';
+            ctx.font = '11px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('Hours Studied (Independent Variable X)', rect.width / 2 + 15, rect.height - 8);
+
+            ctx.save();
+            ctx.translate(16, rect.height / 2 - 10);
+            ctx.rotate(-Math.PI / 2);
+            ctx.fillText('Test Score % (Dependent Variable Y)', 0, 0);
+            ctx.restore();
+
+            ctx.restore();
+        }
+
+        function clearPoints() {
+            dataPoints = [];
+            redrawCanvas();
+        }
+
+        function getCanvasCoords(e) {
+            const rect = canvas.getBoundingClientRect();
+            return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+        }
+
+        function findPointNear(px, py, threshold = 12) {
+            for (let i = 0; i < dataPoints.length; i++) {
+                const ptPx = valToPxX(dataPoints[i].x);
+                const ptPy = valToPxY(dataPoints[i].y);
+                if (Math.hypot(ptPx - px, ptPy - py) < threshold) return i;
+            }
+            return -1;
+        }
+
+        function handlePointerDown(e) {
+            if (e.button === 2) return;
+            const coords = getCanvasCoords(e);
+            const nearIdx = findPointNear(coords.x, coords.y);
+
+            if (nearIdx !== -1) {
+                draggedPointIndex = nearIdx;
+                isDragging = true;
+            } else {
+                dataPoints.push({ x: Number(pxToValX(coords.x).toFixed(2)), y: Number(pxToValY(coords.y).toFixed(2)) });
+                redrawCanvas();
+            }
+        }
+
+        function handlePointerMove(e) {
+            const coords = getCanvasCoords(e);
+            if (isDragging && draggedPointIndex !== null) {
+                dataPoints[draggedPointIndex] = { x: Number(pxToValX(coords.x).toFixed(2)), y: Number(pxToValY(coords.y).toFixed(2)) };
+                redrawCanvas();
+            } else {
+                canvas.style.cursor = findPointNear(coords.x, coords.y) !== -1 ? 'grab' : 'crosshair';
+            }
+        }
+
+        function handlePointerUp() {
+            isDragging = false;
+            draggedPointIndex = null;
+        }
+
+        function handleRightClick(e) {
+            e.preventDefault();
+            const coords = getCanvasCoords(e);
+            const nearIdx = findPointNear(coords.x, coords.y);
+            if (nearIdx !== -1) {
+                dataPoints.splice(nearIdx, 1);
+                redrawCanvas();
+            }
+        }
+    </script>
+</body>
+</html>
