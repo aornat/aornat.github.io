@@ -1,0 +1,858 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Association Rule Demo </title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600;800&family=Inter:wght@300;400;600;700&display=swap');
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #090a0f;
+            color: #f3f4f6;
+            overflow-x: hidden;
+        }
+
+        .font-mono {
+            font-family: 'JetBrains Mono', monospace;
+        }
+
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0f1117;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1f2937;
+            border-radius: 3px;
+        }
+
+        /* Range slider styling */
+        input[type=range] {
+            -webkit-appearance: none;
+            background: #1e2433;
+            height: 6px;
+            border-radius: 3px;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 16px;
+            width: 16px;
+            border-radius: 50%;
+            background: #38bdf8;
+            cursor: pointer;
+            box-shadow: 0 0 10px rgba(56, 189, 248, 0.5);
+        }
+
+        .hud-card {
+            background: rgba(15, 23, 42, 0.75);
+            backdrop-filter: blur(8px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+        }
+
+        .item-chip {
+            transition: all 0.15s ease;
+        }
+        .item-chip:hover {
+            transform: scale(1.05);
+        }
+
+        .grid-cell-active {
+            background-color: rgba(56, 189, 248, 0.18) !important;
+            border-color: rgba(56, 189, 248, 0.6) !important;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col justify-between p-3 gap-3 select-none">
+
+    <!-- Header Bar -->
+    <header class="hud-card rounded-xl px-4 py-2 flex items-center justify-between border-b border-cyan-500/20">
+        <div class="flex items-center gap-3">
+            <span class="text-xs font-mono font-bold bg-cyan-500/20 text-cyan-400 px-2 py-0.5 rounded border border-cyan-500/40">Unsupervised Learning</span>
+            <h1 class="text-sm md:text-base font-semibold tracking-wide text-slate-100 flex items-center gap-2">
+                <span>Association Rule Mining</span>
+                <span class="text-xs text-slate-500 font-mono hidden md:inline">| IB Computer Science with Mr Ornat</span>
+            </h1>
+        </div>
+
+        <!-- Mode Toggle -->
+        <div class="flex items-center gap-2">
+            <div class="flex items-center bg-slate-900/80 p-1 rounded-lg border border-slate-800">
+                <button id="mode-retail" class="px-2.5 py-1 text-xs rounded-md font-medium transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    🛒 Retail Baskets
+                </button>
+                <button id="mode-abstract" class="px-2.5 py-1 text-xs rounded-md font-medium transition-all text-slate-400 hover:text-slate-200">
+                    🔤 Abstract (Items A-E)
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Grid -->
+    <main class="flex-1 grid grid-cols-1 lg:grid-cols-12 gap-3 min-h-0">
+        
+        <!-- Left Column: Transaction Matrix & Presets (4 Cols) -->
+        <section class="lg:col-span-4 flex flex-col gap-3 min-h-0">
+            
+            <!-- Presets & Controls -->
+            <div class="hud-card p-3 rounded-xl space-y-2">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex justify-between">
+                    <span>1. Dataset Presets</span>
+                    <span id="tx-count-badge" class="text-cyan-400 font-mono">10 Baskets</span>
+                </div>
+                <div class="grid grid-cols-3 gap-1.5 text-xs font-medium">
+                    <button id="preset-diaper" class="p-1.5 rounded bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 text-left transition text-slate-300">
+                        🍺 Diaper & Beer
+                    </button>
+                    <button id="preset-tech" class="p-1.5 rounded bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 text-left transition text-slate-300">
+                        💻 Tech Accessories
+                    </button>
+                    <button id="preset-misleading" class="p-1.5 rounded bg-slate-800/80 hover:bg-slate-700/80 border border-slate-700/50 text-left transition text-slate-300">
+                        ⚠️ High Conf Trap
+                    </button>
+                </div>
+                <div class="flex gap-1.5 pt-1">
+                    <button id="btn-add-tx" class="flex-1 py-1 text-xs bg-slate-800 hover:bg-slate-700 rounded text-slate-300 border border-slate-700/60 transition">
+                        + Add Basket
+                    </button>
+                    <button id="btn-random-tx" class="flex-1 py-1 text-xs bg-slate-800 hover:bg-slate-700 rounded text-slate-300 border border-slate-700/60 transition">
+                        🎲 Randomize
+                    </button>
+                </div>
+            </div>
+
+            <!-- Transaction Basket Matrix Grid -->
+            <div class="hud-card p-3 rounded-xl flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
+                    <span>2. Market Baskets (Click to Toggle)</span>
+                    <span class="text-[10px] text-slate-500 italic">Rows = Customers</span>
+                </div>
+                
+                <div id="matrix-container" class="flex-1 overflow-y-auto pr-1">
+                    <!-- Dynamic Matrix Table rendered here -->
+                </div>
+            </div>
+
+            <!-- Apriori Hyperparameter Sliders -->
+            <div class="hud-card p-3 rounded-xl space-y-2">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    3. Apriori Pruning Thresholds
+                </div>
+                <div class="space-y-2 text-xs">
+                    <div class="flex justify-between items-center">
+                        <label class="text-slate-300 font-medium">Min Support: <span id="val-min-sup" class="font-mono text-cyan-400 font-bold">20%</span></label>
+                        <input id="slider-min-sup" type="range" min="10" max="80" value="20" class="w-32">
+                    </div>
+                    <div class="flex justify-between items-center">
+                        <label class="text-slate-300 font-medium">Min Confidence: <span id="val-min-conf" class="font-mono text-cyan-400 font-bold">50%</span></label>
+                        <input id="slider-min-conf" type="range" min="10" max="90" value="50" class="w-32">
+                    </div>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Center Column: Visualizations & Interactive Rule Inspector (5 Cols) -->
+        <section class="lg:col-span-5 flex flex-col gap-3 min-h-0">
+            
+            <!-- Rule Focus Selector -->
+            <div class="hud-card p-3 rounded-xl flex items-center justify-between border-cyan-500/30">
+                <div class="text-xs font-mono font-bold text-slate-300 uppercase tracking-wider">
+                    Target Rule (A ➔ B):
+                </div>
+                <div class="flex items-center gap-2">
+                    <select id="select-item-a" class="bg-slate-900 border border-slate-700 text-cyan-400 font-mono text-xs rounded p-1.5 focus:outline-none focus:border-cyan-500 font-bold">
+                        <!-- Dynamic items -->
+                    </select>
+                    <span class="text-slate-500 font-bold font-mono">➔</span>
+                    <select id="select-item-b" class="bg-slate-900 border border-slate-700 text-magenta-400 font-mono text-xs rounded p-1.5 focus:outline-none focus:border-cyan-500 font-bold text-pink-400">
+                        <!-- Dynamic items -->
+                    </select>
+                </div>
+            </div>
+
+            <!-- Set Overlap / Venn & Network Canvas Container -->
+            <div class="hud-card p-3 rounded-xl flex-1 flex flex-col relative min-h-[300px]">
+                <div class="flex items-center justify-between mb-2 z-10">
+                    <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
+                        <span id="viz-title">Venn Set Overlap & Association Network</span>
+                    </div>
+                    <div class="flex items-center gap-1 bg-slate-900/80 p-0.5 rounded border border-slate-800 text-[11px]">
+                        <button id="view-venn" class="px-2 py-0.5 rounded font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">Venn Diagram</button>
+                        <button id="view-graph" class="px-2 py-0.5 rounded font-medium text-slate-400 hover:text-slate-200">Network Graph</button>
+                    </div>
+                </div>
+
+                <div id="canvas-container" class="relative flex-1 w-full rounded-lg overflow-hidden bg-slate-950/80 border border-slate-900">
+                    <canvas id="vizCanvas" class="w-full h-full block"></canvas>
+                </div>
+            </div>
+
+            <!-- Live Formula HUD Calculator -->
+            <div class="hud-card p-3.5 rounded-xl space-y-2">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider flex justify-between items-center">
+                    <span>Real-Time Math Inspector</span>
+                    <span id="rule-status-badge" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold">STRONG RULE</span>
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 text-xs">
+                    <!-- Support Metric Box -->
+                    <div class="bg-slate-900/90 p-2 rounded border border-slate-800">
+                        <div class="text-cyan-400 text-[10px] font-mono uppercase font-semibold">Support (A ∩ B)</div>
+                        <div id="calc-support" class="text-base font-mono font-bold text-cyan-300 my-0.5">0.0%</div>
+                        <div id="sub-support" class="text-[9px] text-slate-500 font-mono">P(A ∩ B) = count/N</div>
+                    </div>
+
+                    <!-- Confidence Metric Box -->
+                    <div class="bg-slate-900/90 p-2 rounded border border-slate-800">
+                        <div class="text-emerald-400 text-[10px] font-mono uppercase font-semibold">Confidence (A ➔ B)</div>
+                        <div id="calc-confidence" class="text-base font-mono font-bold text-emerald-300 my-0.5">0.0%</div>
+                        <div id="sub-confidence" class="text-[9px] text-slate-500 font-mono">P(B|A) = N(A∩B)/N(A)</div>
+                    </div>
+
+                    <!-- Lift Metric Box -->
+                    <div class="bg-slate-900/90 p-2 rounded border border-slate-800">
+                        <div class="text-purple-400 text-[10px] font-mono uppercase font-semibold">Lift Ratio</div>
+                        <div id="calc-lift" class="text-base font-mono font-bold text-purple-300 my-0.5">0.00</div>
+                        <div id="sub-lift" class="text-[9px] text-slate-500 font-mono">Conf / Support(B)</div>
+                    </div>
+                </div>
+
+                <!-- Interpretation Note -->
+                <div id="lift-explanation" class="text-[11px] text-slate-400 bg-slate-900/60 p-2 rounded border border-slate-800/80 font-mono">
+                    Loading interpretation...
+                </div>
+            </div>
+
+        </section>
+
+        <!-- Right Column: Mined Rules & Apriori Table (3 Cols) -->
+        <section class="lg:col-span-3 flex flex-col gap-3 min-h-0">
+            
+            <!-- Mined Rules List -->
+            <div class="hud-card p-3 rounded-xl flex-1 flex flex-col min-h-0 overflow-hidden">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider mb-2 flex justify-between items-center">
+                    <span>Mined Association Rules</span>
+                    <span id="rules-count" class="text-cyan-400 font-mono">0 rules</span>
+                </div>
+
+                <div id="rules-list-container" class="flex-1 overflow-y-auto space-y-1.5 pr-1 text-xs">
+                    <!-- Generated rules populated here -->
+                </div>
+            </div>
+
+            <!-- Apriori Pruning Explanation Mini Card -->
+            <div class="hud-card p-3 rounded-xl space-y-2">
+                <div class="text-xs font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    Apriori Property Key
+                </div>
+                <div class="space-y-1.5 text-[11px] text-slate-400 leading-relaxed">
+                    <p class="flex items-start gap-1">
+                        <span class="text-cyan-400 font-bold">1.</span>
+                        <span><b>Apriori Principle:</b> All subsets of a frequent itemset must also be frequent.</span>
+                    </p>
+                    <p class="flex items-start gap-1">
+                        <span class="text-emerald-400 font-bold">2.</span>
+                        <span><b>Lift > 1:</b> Positive correlation (item A boosts purchase of B).</span>
+                    </p>
+                    <p class="flex items-start gap-1">
+                        <span class="text-rose-400 font-bold">3.</span>
+                        <span><b>Lift < 1:</b> Negative correlation (item A reduces purchase of B).</span>
+                    </p>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Vanilla JS Logic -->
+    <script>
+        // --- PRESET DATASETS ---
+        const ITEMS_RETAIL = ['Bread', 'Milk', 'Diapers', 'Beer', 'Eggs'];
+        const ITEMS_ABSTRACT = ['Item A', 'Item B', 'Item C', 'Item D', 'Item E'];
+
+        const PRESETS = {
+            diaper: [
+                ['Bread', 'Milk', 'Diapers', 'Beer'],
+                ['Bread', 'Diapers', 'Beer', 'Eggs'],
+                ['Milk', 'Diapers', 'Beer'],
+                ['Bread', 'Milk', 'Diapers', 'Beer', 'Eggs'],
+                ['Bread', 'Milk'],
+                ['Diapers', 'Beer'],
+                ['Bread', 'Milk', 'Eggs'],
+                ['Diapers', 'Beer', 'Eggs'],
+                ['Bread', 'Diapers'],
+                ['Milk', 'Beer']
+            ],
+            tech: [
+                ['Laptop', 'Mouse', 'Keyboard'],
+                ['Laptop', 'Mouse'],
+                ['Laptop', 'Headphones'],
+                ['Mouse', 'Keyboard'],
+                ['Laptop', 'Mouse', 'Keyboard', 'Headphones'],
+                ['Mouse', 'Keyboard'],
+                ['Laptop', 'Mouse'],
+                ['Headphones'],
+                ['Laptop', 'Keyboard'],
+                ['Mouse', 'Headphones']
+            ],
+            misleading: [
+                ['Bread', 'Milk', 'Eggs'],
+                ['Milk', 'Eggs'],
+                ['Bread', 'Milk'],
+                ['Milk', 'Eggs'],
+                ['Milk', 'Beer'],
+                ['Milk', 'Eggs', 'Beer'],
+                ['Milk'],
+                ['Bread', 'Milk'],
+                ['Milk', 'Eggs'],
+                ['Milk']
+            ]
+        };
+
+        // --- GLOBAL STATE ---
+        const state = {
+            mode: 'retail', // 'retail' | 'abstract'
+            items: [...ITEMS_RETAIL],
+            transactions: JSON.parse(JSON.stringify(PRESETS.diaper)),
+            minSupport: 0.20,
+            minConfidence: 0.50,
+            itemA: 'Diapers',
+            itemB: 'Beer',
+            viewMode: 'venn' // 'venn' | 'graph'
+        };
+
+        // --- DOM ELEMENTS ---
+        const matrixContainer = document.getElementById('matrix-container');
+        const selectA = document.getElementById('select-item-a');
+        const selectB = document.getElementById('select-item-b');
+        const rulesContainer = document.getElementById('rules-list-container');
+        const vizCanvas = document.getElementById('vizCanvas');
+        const ctx = vizCanvas.getContext('2d');
+
+        // --- RESIZE CANVAS ---
+        function resizeCanvas() {
+            const container = document.getElementById('canvas-container');
+            vizCanvas.width = container.clientWidth;
+            vizCanvas.height = container.clientHeight;
+            renderViz();
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        // --- DATASET & ITEM MANAGEMENT ---
+        function setMode(mode) {
+            state.mode = mode;
+            if (mode === 'retail') {
+                state.items = [...ITEMS_RETAIL];
+                state.transactions = JSON.parse(JSON.stringify(PRESETS.diaper));
+                state.itemA = 'Diapers';
+                state.itemB = 'Beer';
+                document.getElementById('mode-retail').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+                document.getElementById('mode-abstract').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all text-slate-400 hover:text-slate-200';
+            } else {
+                state.items = [...ITEMS_ABSTRACT];
+                state.transactions = [
+                    ['Item A', 'Item B', 'Item C'],
+                    ['Item A', 'Item B'],
+                    ['Item B', 'Item C', 'Item D'],
+                    ['Item A', 'Item B', 'Item C', 'Item E'],
+                    ['Item A', 'Item C'],
+                    ['Item B', 'Item D'],
+                    ['Item A', 'Item B', 'Item E'],
+                    ['Item B', 'Item C'],
+                    ['Item A', 'Item D'],
+                    ['Item B', 'Item E']
+                ];
+                state.itemA = 'Item A';
+                state.itemB = 'Item B';
+                document.getElementById('mode-abstract').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+                document.getElementById('mode-retail').className = 'px-2.5 py-1 text-xs rounded-md font-medium transition-all text-slate-400 hover:text-slate-200';
+            }
+            updateItemDropdowns();
+            renderMatrix();
+            recalculateAll();
+        }
+
+        function updateItemDropdowns() {
+            selectA.innerHTML = '';
+            selectB.innerHTML = '';
+            state.items.forEach(item => {
+                const optA = document.createElement('option');
+                optA.value = item;
+                optA.innerText = item;
+                if (item === state.itemA) optA.selected = true;
+                selectA.appendChild(optA);
+
+                const optB = document.createElement('option');
+                optB.value = item;
+                optB.innerText = item;
+                if (item === state.itemB) optB.selected = true;
+                selectB.appendChild(optB);
+            });
+        }
+
+        // --- RENDER TRANSACTION MATRIX ---
+        function renderMatrix() {
+            matrixContainer.innerHTML = '';
+            const table = document.createElement('table');
+            table.className = 'w-full text-xs text-left border-collapse';
+
+            // Table Header
+            const thead = document.createElement('thead');
+            thead.className = 'sticky top-0 bg-slate-900 text-slate-400 font-mono text-[11px] border-b border-slate-800';
+            let headerHTML = `<tr><th class="py-1 px-2">ID</th>`;
+            state.items.forEach(item => {
+                const isA = item === state.itemA;
+                const isB = item === state.itemB;
+                let colorClass = isA ? 'text-cyan-400 font-bold' : (isB ? 'text-pink-400 font-bold' : '');
+                headerHTML += `<th class="py-1 px-1.5 text-center ${colorClass}">${item}</th>`;
+            });
+            headerHTML += `<th class="py-1 px-1 text-center">Action</th></tr>`;
+            thead.innerHTML = headerHTML;
+            table.appendChild(thead);
+
+            // Table Body
+            const tbody = document.createElement('tbody');
+            tbody.className = 'divide-y divide-slate-800/60 font-mono';
+
+            state.transactions.forEach((tx, idx) => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-900/50 transition';
+
+                let rowHTML = `<td class="py-1 px-2 text-slate-500 text-[10px]">#${idx + 1}</td>`;
+                state.items.forEach(item => {
+                    const active = tx.includes(item);
+                    const isA = item === state.itemA;
+                    const isB = item === state.itemB;
+                    let activeBg = isA ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40' : 
+                                  (isB ? 'bg-pink-500/20 text-pink-300 border-pink-500/40' : 'bg-slate-800 text-slate-300 border-slate-700');
+                    
+                    rowHTML += `
+                        <td class="py-1 px-1 text-center">
+                            <button onclick="toggleItemInTx(${idx}, '${item}')" 
+                                class="w-6 h-6 rounded border text-[11px] font-bold transition ${active ? activeBg : 'bg-slate-950/40 text-slate-700 border-slate-900 hover:border-slate-700'}">
+                                ${active ? '✓' : '•'}
+                            </button>
+                        </td>`;
+                });
+
+                rowHTML += `
+                    <td class="py-1 px-1 text-center">
+                        <button onclick="removeTx(${idx})" class="text-rose-500 hover:text-rose-400 font-bold px-1">✕</button>
+                    </td>`;
+                tr.innerHTML = rowHTML;
+                tbody.appendChild(tr);
+            });
+
+            table.appendChild(tbody);
+            matrixContainer.appendChild(table);
+
+            document.getElementById('tx-count-badge').innerText = `${state.transactions.length} Baskets`;
+        }
+
+        window.toggleItemInTx = function(txIdx, item) {
+            const tx = state.transactions[txIdx];
+            const itemIdx = tx.indexOf(item);
+            if (itemIdx > -1) {
+                tx.splice(itemIdx, 1);
+            } else {
+                tx.push(item);
+            }
+            renderMatrix();
+            recalculateAll();
+        };
+
+        window.removeTx = function(txIdx) {
+            state.transactions.splice(txIdx, 1);
+            renderMatrix();
+            recalculateAll();
+        };
+
+        // --- APRIORI & STATISTICAL MATH COMPUTATIONS ---
+        function getCount(itemset) {
+            return state.transactions.filter(tx => itemset.every(item => tx.includes(item))).length;
+        }
+
+        function calculateMetrics(itemA, itemB) {
+            const N = state.transactions.length;
+            if (N === 0) return { countA: 0, countB: 0, countAB: 0, supportA: 0, supportB: 0, supportAB: 0, confidence: 0, lift: 0 };
+
+            const countA = getCount([itemA]);
+            const countB = getCount([itemB]);
+            const countAB = getCount([itemA, itemB]);
+
+            const supportA = countA / N;
+            const supportB = countB / N;
+            const supportAB = countAB / N;
+
+            const confidence = countA > 0 ? countAB / countA : 0;
+            const lift = supportB > 0 ? confidence / supportB : 0;
+
+            return {
+                N,
+                countA,
+                countB,
+                countAB,
+                supportA,
+                supportB,
+                supportAB,
+                confidence,
+                lift
+            };
+        }
+
+        function recalculateAll() {
+            if (state.itemA === state.itemB) {
+                // Auto switch B if identical
+                state.itemB = state.items.find(i => i !== state.itemA) || state.items[0];
+                selectB.value = state.itemB;
+            }
+
+            const m = calculateMetrics(state.itemA, state.itemB);
+
+            // Update Math HUD Readouts
+            document.getElementById('calc-support').innerText = `${(m.supportAB * 100).toFixed(1)}%`;
+            document.getElementById('sub-support').innerText = `${m.countAB} / ${m.N} baskets`;
+
+            document.getElementById('calc-confidence').innerText = `${(m.confidence * 100).toFixed(1)}%`;
+            document.getElementById('sub-confidence').innerText = `${m.countAB} / ${m.countA} (when buying ${state.itemA})`;
+
+            document.getElementById('calc-lift').innerText = m.lift.toFixed(2);
+            document.getElementById('sub-lift').innerText = `Conf (${(m.confidence*100).toFixed(0)}%) / Sup B (${(m.supportB*100).toFixed(0)}%)`;
+
+            // Badge & Explanation logic
+            const badge = document.getElementById('rule-status-badge');
+            const exp = document.getElementById('lift-explanation');
+
+            if (m.supportAB < state.minSupport || m.confidence < state.minConfidence) {
+                badge.innerText = 'DISCARDED BY APRIORI';
+                badge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-400 border border-rose-500/40';
+            } else if (m.lift > 1.2) {
+                badge.innerText = 'STRONG POSITIVE RULE';
+                badge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/40';
+            } else if (m.lift >= 0.9 && m.lift <= 1.1) {
+                badge.innerText = 'INDEPENDENT (NO LIFT)';
+                badge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-amber-500/20 text-amber-400 border border-amber-500/40';
+            } else {
+                badge.innerText = 'NEGATIVE ASSOCIATION';
+                badge.className = 'px-2 py-0.5 rounded text-[10px] font-mono font-bold bg-rose-500/20 text-rose-300 border border-rose-500/40';
+            }
+
+            if (m.lift > 1) {
+                exp.innerHTML = `Buying <b class="text-cyan-300">${state.itemA}</b> makes a customer <b class="text-emerald-400">${m.lift.toFixed(2)}x more likely</b> to buy <b class="text-pink-300">${state.itemB}</b> than baseline chance.`;
+            } else if (Math.abs(m.lift - 1) < 0.1) {
+                exp.innerHTML = `Buying <b class="text-cyan-300">${state.itemA}</b> has <b class="text-amber-400">no impact</b> on buying <b class="text-pink-300">${state.itemB}</b>. They are independent.`;
+            } else {
+                exp.innerHTML = `Buying <b class="text-cyan-300">${state.itemA}</b> actually <b class="text-rose-400">reduces</b> the likelihood of buying <b class="text-pink-300">${state.itemB}</b>.`;
+            }
+
+            mineRules();
+            renderViz();
+        }
+
+        // --- RULE MINING ENGINE ---
+        function mineRules() {
+            rulesContainer.innerHTML = '';
+            const validRules = [];
+
+            state.items.forEach(a => {
+                state.items.forEach(b => {
+                    if (a !== b) {
+                        const m = calculateMetrics(a, b);
+                        if (m.supportAB >= state.minSupport && m.confidence >= state.minConfidence) {
+                            validRules.push({ a, b, ...m });
+                        }
+                    }
+                });
+            });
+
+            document.getElementById('rules-count').innerText = `${validRules.length} rules`;
+
+            if (validRules.length === 0) {
+                rulesContainer.innerHTML = `<div class="text-slate-500 italic p-3 text-center">No rules meet Min Support (${(state.minSupport*100)}%) & Confidence (${(state.minConfidence*100)}%).</div>`;
+                return;
+            }
+
+            validRules.sort((r1, r2) => r2.lift - r1.lift);
+
+            validRules.forEach(r => {
+                const card = document.createElement('div');
+                const isCurrent = r.a === state.itemA && r.b === state.itemB;
+                card.className = `p-2 rounded border cursor-pointer transition ${isCurrent ? 'bg-cyan-500/10 border-cyan-500/50' : 'bg-slate-900/60 border-slate-800 hover:border-slate-700'}`;
+                
+                let liftColor = r.lift > 1.1 ? 'text-emerald-400' : (r.lift < 0.9 ? 'text-rose-400' : 'text-amber-400');
+                
+                card.innerHTML = `
+                    <div class="flex justify-between items-center font-mono font-semibold">
+                        <span class="text-slate-200">${r.a} ➔ ${r.b}</span>
+                        <span class="text-[11px] ${liftColor}">Lift: ${r.lift.toFixed(2)}</span>
+                    </div>
+                    <div class="flex gap-3 text-[10px] text-slate-400 font-mono mt-1">
+                        <span>Sup: ${(r.supportAB * 100).toFixed(0)}%</span>
+                        <span>Conf: ${(r.confidence * 100).toFixed(0)}%</span>
+                    </div>
+                `;
+                card.onclick = () => {
+                    state.itemA = r.a;
+                    state.itemB = r.b;
+                    selectA.value = r.a;
+                    selectB.value = r.b;
+                    renderMatrix();
+                    recalculateAll();
+                };
+                rulesContainer.appendChild(card);
+            });
+        }
+
+        // --- CANVAS VENN & NETWORK GRAPH VISUALIZER ---
+        function renderViz() {
+            if (!ctx) return;
+            const w = vizCanvas.width;
+            const h = vizCanvas.height;
+
+            ctx.fillStyle = '#05070c';
+            ctx.fillRect(0, 0, w, h);
+
+            if (state.viewMode === 'venn') {
+                renderVennDiagram(w, h);
+            } else {
+                renderNetworkGraph(w, h);
+            }
+        }
+
+        function renderVennDiagram(w, h) {
+            const m = calculateMetrics(state.itemA, state.itemB);
+            const cx = w / 2;
+            const cy = h / 2;
+
+            // Scale radii proportional to Support
+            const baseR = Math.min(w, h) * 0.32;
+            const rA = Math.max(25, Math.sqrt(m.supportA) * baseR);
+            const rB = Math.max(25, Math.sqrt(m.supportB) * baseR);
+
+            // Compute distance based on intersection / overlap ratio
+            const maxOffset = rA + rB - 10;
+            const overlapRatio = m.countA > 0 && m.countB > 0 ? (m.countAB / Math.min(m.countA, m.countB)) : 0;
+            const dist = maxOffset - (overlapRatio * (rA + rB) * 0.45);
+
+            const offsetA = cx - dist / 2;
+            const offsetB = cx + dist / 2;
+
+            // Draw Set A Circle (Cyan)
+            ctx.fillStyle = 'rgba(0, 243, 255, 0.18)';
+            ctx.strokeStyle = '#00f3ff';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(offsetA, cy, rA, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Draw Set B Circle (Pink)
+            ctx.fillStyle = 'rgba(255, 0, 127, 0.18)';
+            ctx.strokeStyle = '#ff007f';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.arc(offsetB, cy, rB, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            // Render Set Labels & Readouts
+            ctx.font = 'bold 12px JetBrains Mono';
+            ctx.fillStyle = '#00f3ff';
+            ctx.textAlign = 'center';
+            ctx.fillText(`${state.itemA}`, offsetA - rA * 0.3, cy - rA - 8);
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillText(`P(A) = ${(m.supportA*100).toFixed(0)}%`, offsetA - rA * 0.3, cy);
+
+            ctx.font = 'bold 12px JetBrains Mono';
+            ctx.fillStyle = '#ff007f';
+            ctx.fillText(`${state.itemB}`, offsetB + rB * 0.3, cy - rB - 8);
+            ctx.font = '10px JetBrains Mono';
+            ctx.fillText(`P(B) = ${(m.supportB*100).toFixed(0)}%`, offsetB + rB * 0.3, cy);
+
+            // Intersection Text
+            if (m.countAB > 0) {
+                ctx.fillStyle = '#f3f4f6';
+                ctx.font = 'bold 11px JetBrains Mono';
+                ctx.fillText(`A ∩ B`, cx, cy - 6);
+                ctx.font = '10px JetBrains Mono';
+                ctx.fillText(`${(m.supportAB * 100).toFixed(1)}%`, cx, cy + 10);
+            }
+        }
+
+        function renderNetworkGraph(w, h) {
+            const cx = w / 2;
+            const cy = h / 2;
+            const radius = Math.min(w, h) * 0.35;
+            const items = state.items;
+            const nodes = [];
+
+            // Layout items in a circle
+            items.forEach((item, idx) => {
+                const angle = (idx / items.length) * Math.PI * 2 - Math.PI / 2;
+                nodes.push({
+                    name: item,
+                    x: cx + radius * Math.cos(angle),
+                    y: cy + radius * Math.sin(angle),
+                    support: getCount([item]) / state.transactions.length
+                });
+            });
+
+            // Draw Directed Association Arrows for Valid Rules
+            items.forEach(a => {
+                items.forEach(b => {
+                    if (a !== b) {
+                        const m = calculateMetrics(a, b);
+                        if (m.supportAB >= state.minSupport && m.confidence >= state.minConfidence) {
+                            const nodeA = nodes.find(n => n.name === a);
+                            const nodeB = nodes.find(n => n.name === b);
+
+                            let edgeColor = m.lift > 1.1 ? '#10b981' : (m.lift < 0.9 ? '#f43f5e' : '#f59e0b');
+                            let isFocused = a === state.itemA && b === state.itemB;
+
+                            ctx.strokeStyle = edgeColor;
+                            ctx.lineWidth = isFocused ? 3.5 : Math.max(1, m.confidence * 3);
+                            ctx.globalAlpha = isFocused ? 1.0 : 0.4;
+
+                            drawArrow(ctx, nodeA.x, nodeA.y, nodeB.x, nodeB.y, 20);
+                            ctx.globalAlpha = 1.0;
+                        }
+                    }
+                });
+            });
+
+            // Draw Nodes
+            nodes.forEach(n => {
+                const isA = n.name === state.itemA;
+                const isB = n.name === state.itemB;
+                let nodeColor = isA ? '#00f3ff' : (isB ? '#ff007f' : '#38bdf8');
+                let r = Math.max(12, Math.sqrt(n.support) * 28);
+
+                ctx.beginPath();
+                ctx.arc(n.x, n.y, r, 0, Math.PI * 2);
+                ctx.fillStyle = nodeColor;
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = isA || isB ? 2.5 : 1;
+                ctx.stroke();
+
+                ctx.fillStyle = '#f3f4f6';
+                ctx.font = 'bold 11px JetBrains Mono';
+                ctx.textAlign = 'center';
+                ctx.fillText(n.name, n.x, n.y + r + 14);
+            });
+        }
+
+        function drawArrow(ctx, fromx, fromy, tox, toy, nodeRadius) {
+            const angle = Math.atan2(toy - fromy, tox - fromx);
+            const startX = fromx + nodeRadius * Math.cos(angle);
+            const startY = fromy + nodeRadius * Math.sin(angle);
+            const endX = tox - (nodeRadius + 6) * Math.cos(angle);
+            const endY = toy - (nodeRadius + 6) * Math.sin(angle);
+
+            const headlen = 8;
+            ctx.beginPath();
+            ctx.moveTo(startX, startY);
+            ctx.lineTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle - Math.PI / 6), endY - headlen * Math.sin(angle - Math.PI / 6));
+            ctx.moveTo(endX, endY);
+            ctx.lineTo(endX - headlen * Math.cos(angle + Math.PI / 6), endY - headlen * Math.sin(angle + Math.PI / 6));
+            ctx.stroke();
+        }
+
+        // --- EVENT LISTENERS ---
+        document.getElementById('mode-retail').addEventListener('click', () => setMode('retail'));
+        document.getElementById('mode-abstract').addEventListener('click', () => setMode('abstract'));
+
+        document.getElementById('preset-diaper').addEventListener('click', () => {
+            setMode('retail');
+        });
+        document.getElementById('preset-tech').addEventListener('click', () => {
+            state.mode = 'retail';
+            state.items = ['Laptop', 'Mouse', 'Keyboard', 'Headphones', 'Monitor'];
+            state.transactions = JSON.parse(JSON.stringify(PRESETS.tech));
+            state.itemA = 'Laptop';
+            state.itemB = 'Mouse';
+            updateItemDropdowns();
+            renderMatrix();
+            recalculateAll();
+        });
+        document.getElementById('preset-misleading').addEventListener('click', () => {
+            setMode('retail');
+            state.transactions = JSON.parse(JSON.stringify(PRESETS.misleading));
+            state.itemA = 'Bread';
+            state.itemB = 'Milk';
+            selectA.value = 'Bread';
+            selectB.value = 'Milk';
+            renderMatrix();
+            recalculateAll();
+        });
+
+        document.getElementById('btn-add-tx').addEventListener('click', () => {
+            // Add custom transaction with 2 random items
+            const randItems = [...state.items].sort(() => 0.5 - Math.random()).slice(0, 2);
+            state.transactions.push(randItems);
+            renderMatrix();
+            recalculateAll();
+        });
+
+        document.getElementById('btn-random-tx').addEventListener('click', () => {
+            state.transactions = [];
+            for (let i = 0; i < 10; i++) {
+                const count = Math.floor(Math.random() * 3) + 1;
+                const shuffled = [...state.items].sort(() => 0.5 - Math.random()).slice(0, count);
+                state.transactions.push(shuffled);
+            }
+            renderMatrix();
+            recalculateAll();
+        });
+
+        selectA.addEventListener('change', (e) => {
+            state.itemA = e.target.value;
+            recalculateAll();
+        });
+        selectB.addEventListener('change', (e) => {
+            state.itemB = e.target.value;
+            recalculateAll();
+        });
+
+        document.getElementById('slider-min-sup').addEventListener('input', (e) => {
+            state.minSupport = parseInt(e.target.value) / 100;
+            document.getElementById('val-min-sup').innerText = `${e.target.value}%`;
+            recalculateAll();
+        });
+
+        document.getElementById('slider-min-conf').addEventListener('input', (e) => {
+            state.minConfidence = parseInt(e.target.value) / 100;
+            document.getElementById('val-min-conf').innerText = `${e.target.value}%`;
+            recalculateAll();
+        });
+
+        document.getElementById('view-venn').addEventListener('click', () => {
+            state.viewMode = 'venn';
+            document.getElementById('view-venn').className = 'px-2 py-0.5 rounded font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+            document.getElementById('view-graph').className = 'px-2 py-0.5 rounded font-medium text-slate-400 hover:text-slate-200';
+            renderViz();
+        });
+
+        document.getElementById('view-graph').addEventListener('click', () => {
+            state.viewMode = 'graph';
+            document.getElementById('view-graph').className = 'px-2 py-0.5 rounded font-medium bg-cyan-500/20 text-cyan-300 border border-cyan-500/30';
+            document.getElementById('view-venn').className = 'px-2 py-0.5 rounded font-medium text-slate-400 hover:text-slate-200';
+            renderViz();
+        });
+
+        // --- INITIALIZATION ---
+        window.onload = () => {
+            setMode('retail');
+            resizeCanvas();
+        };
+    </script>
+</body>
+</html>
