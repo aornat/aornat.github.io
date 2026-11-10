@@ -13,7 +13,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 
-    <!-- Custom CSS Styles -->
     <style>
         body {
             font-family: 'Inter', sans-serif;
@@ -25,143 +24,133 @@
             font-family: 'JetBrains Mono', monospace;
         }
 
-        /* Minimal subtle grid background */
+        /* Subtle grid background */
         .bg-grid {
             background-image: linear-gradient(to right, rgba(255, 255, 255, 0.02) 1px, transparent 1px),
                               linear-gradient(to bottom, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
             background-size: 32px 32px;
         }
 
-        /* Minimal Card Hover Effects */
-        .resource-card {
-            background-color: #161b22;
-            border: 1px solid #30363d;
-            transition: border-color 0.2s ease, transform 0.2s ease;
+        /* Custom Accordion Caret Rotation */
+        details summary::-webkit-details-marker {
+            display: none;
         }
-
-        .resource-card:hover {
-            border-color: #38bdf8;
-            transform: translateY(-2px);
+        
+        details[open] summary .chevron {
+            transform: rotate(90deg);
         }
     </style>
 </head>
 <body class="bg-grid min-h-screen flex flex-col justify-center items-center px-4 py-12 antialiased">
 
-    <div class="w-full max-w-2xl">
+    <div class="w-full max-w-xl">
         <!-- HEADER -->
         <header class="mb-8 text-center">
             <span class="text-xs font-mono tracking-widest text-sky-400 uppercase">Mr Ornat's Interactive Demos</span>
             <h1 class="text-2xl sm:text-3xl font-bold text-white mt-1">Machine Learning</h1>
         </header>
 
-        <!-- 
-            ===================================================================
-            INSTRUCTIONS:
-            - Change 'href="..."' to your URL.
-            - Change the text inside <h2> for the Title.
-            - Change the text inside <p> for the 1-sentence description.
-            ===================================================================
-        -->
-
+        <!-- ACCORDION CONTAINER -->
         <main class="space-y-3">
 
-
-            <!-- LINK 2 -->
-            <a href="lr.html" target="_blank" rel="noopener noreferrer" class="resource-card block p-4 rounded-lg">
-                <div class="flex items-center justify-between">
-                    <!-- EDIT TITLE HERE -->
-                    <h2 class="text-base font-semibold text-white">Linear Regression</h2>
-                    <span class="text-xs font-mono text-gray-500">1</span>
+            <!-- CATEGORY 1: SUPERVISED LEARNING -->
+            <details class="group bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
+                <summary class="flex items-center justify-between p-4 cursor-pointer select-none hover:bg-[#1f242c] transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <svg class="chevron w-4 h-4 text-sky-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="9 5l7 7-7 7"></path>
+                        </svg>
+                        <h2 class="text-base font-semibold text-white">Supervised Learning</h2>
+                    </div>
+                </summary>
+                
+                <div class="border-t border-[#30363d]/60 divide-y divide-[#30363d]/40">
+                    <a href="lr.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        Linear Regression
+                    </a>
+                    <a href="knn.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        K-Nearest Neighbour (K-NN)
+                    </a>
+                    <a href="knn_2.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        K-Nearest Neighbour (K-NN) 2
+                    </a>
+                    <a href="decision_tree.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        Decision Tree
+                    </a>
+                    <a href="decision_tree_2" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        Decision Tree 2
+                    </a>
+                    <a href="overfitting_underfitting.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        Overfitting &amp; Underfitting
+                    </a>
                 </div>
-                <!-- EDIT DESCRIPTION HERE -->
-                <p class="text-sm text-gray-400 mt-1">Supervised learning</p>
-            </a>
+            </details>
 
-            <!-- LINK 3 -->
-            <a href="knn.html" target="_blank" rel="noopener noreferrer" class="resource-card block p-4 rounded-lg">
-                <div class="flex items-center justify-between">
-                    <!-- EDIT TITLE HERE -->
-                    <h2 class="text-base font-semibold text-white">K-Nearest Neighbour (K-NN)</h2>
-                    <span class="text-xs font-mono text-gray-500">2</span>
+            <!-- CATEGORY 2: UNSUPERVISED LEARNING -->
+            <details class="group bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
+                <summary class="flex items-center justify-between p-4 cursor-pointer select-none hover:bg-[#1f242c] transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <svg class="chevron w-4 h-4 text-sky-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="9 5l7 7-7 7"></path>
+                        </svg>
+                        <h2 class="text-base font-semibold text-white">Unsupervised Learning</h2>
+                    </div>
+                </summary>
+                
+                <div class="border-t border-[#30363d]/60 divide-y divide-[#30363d]/40">
+                    <a href="clustering.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        K Means Clustering
+                    </a>
+                    <a href="association_rule.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        Association Rule
+                    </a>
                 </div>
-                <!-- EDIT DESCRIPTION HERE -->
-                <p class="text-sm text-gray-400 mt-1">Supervised learning</p>
-            </a>
+            </details>
 
-            <!-- LINK 4 -->
-            <a href="knn_2.html" target="_blank" rel="noopener noreferrer" class="resource-card block p-4 rounded-lg">
-                <div class="flex items-center justify-between">
-                    <!-- EDIT TITLE HERE -->
-                    <h2 class="text-base font-semibold text-white">K-Nearest Neighbour (K-NN) 2</h2>
-                    <span class="text-xs font-mono text-gray-500">3</span>
+            <!-- CATEGORY 3: REINFORCEMENT LEARNING -->
+            <details class="group bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
+                <summary class="flex items-center justify-between p-4 cursor-pointer select-none hover:bg-[#1f242c] transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <svg class="chevron w-4 h-4 text-sky-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="9 5l7 7-7 7"></path>
+                        </svg>
+                        <h2 class="text-base font-semibold text-white">Reinforcement Learning</h2>
+                    </div>
+                </summary>
+                
+                <div class="border-t border-[#30363d]/60 divide-y divide-[#30363d]/40">
+                    <a href="reinforcement_learning.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        Reinforcement Learning
+                    </a>
+                    <a href="reinforcement_learning_2.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        Reinforcement Learning 2
+                    </a>
                 </div>
-                <!-- EDIT DESCRIPTION HERE -->
-                <p class="text-sm text-gray-400 mt-1">Supervised learning</p>
-            </a>
+            </details>
 
-            <!-- LINK 5 -->
-            <a href="decision_tree.html" target="_blank" rel="noopener noreferrer" class="resource-card block p-4 rounded-lg">
-                <div class="flex items-center justify-between">
-                    <!-- EDIT TITLE HERE -->
-                    <h2 class="text-base font-semibold text-white">Decision Tree</h2>
-                    <span class="text-xs font-mono text-gray-500">4</span>
+            <!-- CATEGORY 4: GENETIC ALGORITHMS -->
+            <details class="group bg-[#161b22] border border-[#30363d] rounded-lg overflow-hidden">
+                <summary class="flex items-center justify-between p-4 cursor-pointer select-none hover:bg-[#1f242c] transition-colors">
+                    <div class="flex items-center space-x-3">
+                        <svg class="chevron w-4 h-4 text-sky-400 transition-transform duration-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="9 5l7 7-7 7"></path>
+                        </svg>
+                        <h2 class="text-base font-semibold text-white">Genetic Algorithms</h2>
+                    </div>
+                </summary>
+                
+                <div class="border-t border-[#30363d]/60 divide-y divide-[#30363d]/40">
+                    <a href="reinforcement_learning_2.html" target="_blank" rel="noopener noreferrer" class="block px-5 py-3 text-sm text-gray-300 hover:text-sky-400 hover:bg-[#1f2937] transition-colors">
+                        Genetic Algorithms
+                    </a>
                 </div>
-                <!-- EDIT DESCRIPTION HERE -->
-                <p class="text-sm text-gray-400 mt-1">Supervised learning</p>
-            </a>
-
-            <!-- LINK 6 -->
-            <a href="decision_tree_2" target="_blank" rel="noopener noreferrer" class="resource-card block p-4 rounded-lg">
-                <div class="flex items-center justify-between">
-                    <!-- EDIT TITLE HERE -->
-                    <h2 class="text-base font-semibold text-white">Decision Tree 2</h2>
-                    <span class="text-xs font-mono text-gray-500">5</span>
-                </div>
-                <!-- EDIT DESCRIPTION HERE -->
-                <p class="text-sm text-gray-400 mt-1">Supervised learning</p>
-            </a>
-
-
-            <!-- LINK 7 -->
-            <a href="overfitting_underfitting.html" target="_blank" rel="noopener noreferrer" class="resource-card block p-4 rounded-lg">
-                <div class="flex items-center justify-between">
-                    <!-- EDIT TITLE HERE -->
-                    <h2 class="text-base font-semibold text-white">Overfitting & Underfitting</h2>
-                    <span class="text-xs font-mono text-gray-500">6</span>
-                </div>
-                <!-- EDIT DESCRIPTION HERE -->
-                <p class="text-sm text-gray-400 mt-1">Model fitness</p>
-            </a>
-
-
-            <!-- LINK 8 -->
-            <a href="clustering.html" target="_blank" rel="noopener noreferrer" class="resource-card block p-4 rounded-lg">
-                <div class="flex items-center justify-between">
-                    <!-- EDIT TITLE HERE -->
-                    <h2 class="text-base font-semibold text-white">K Means Clustering</h2>
-                    <span class="text-xs font-mono text-gray-500">7</span>
-                </div>
-                <!-- EDIT DESCRIPTION HERE -->
-                <p class="text-sm text-gray-400 mt-1">Unsupervised learning</p>
-            </a>
-
-            <!-- LINK 9 -->
-            <a href="association_rule.html" target="_blank" rel="noopener noreferrer" class="resource-card block p-4 rounded-lg">
-                <div class="flex items-center justify-between">
-                    <!-- EDIT TITLE HERE -->
-                    <h2 class="text-base font-semibold text-white">Association Rule</h2>
-                    <span class="text-xs font-mono text-gray-500">8</span>
-                </div>
-                <!-- EDIT DESCRIPTION HERE -->
-                <p class="text-sm text-gray-400 mt-1">Unsupervised learning</p>
-            </a>
-
+            </details>
 
         </main>
 
         <!-- FOOTER -->
         <footer class="mt-8 text-center text-xs text-gray-600 font-mono">
-            Updated Nov 2026
+            Updated Nov 10 2026
         </footer>
     </div>
 
