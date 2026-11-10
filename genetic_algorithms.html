@@ -1,0 +1,1354 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Genetic Algorithm Demo</title>
+  <style>
+    :root {
+      --bg-main: #09090b;
+      --bg-card: #121216;
+      --bg-card-hover: #18181f;
+      --border: #272730;
+      --text-main: #f4f4f5;
+      --text-muted: #8e8ea0;
+      --accent-cyan: #00f0ff;
+      --accent-magenta: #ff0055;
+      --accent-amber: #ffb700;
+      --accent-green: #00ff66;
+      --accent-purple: #a855f7;
+      --ghost-line: rgba(255, 255, 255, 0.04);
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+
+    body {
+      background-color: var(--bg-main);
+      color: var(--text-main);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    /* Header Bar */
+    header {
+      background: var(--bg-card);
+      border-bottom: 1px solid var(--border);
+      padding: 0.6rem 1.2rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 10;
+    }
+
+    .title-group {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .badge {
+      background: rgba(0, 240, 255, 0.1);
+      color: var(--accent-cyan);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      padding: 0.2rem 0.6rem;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+    }
+
+    h1 {
+      font-size: 1.1rem;
+      font-weight: 600;
+      letter-spacing: -0.02em;
+    }
+
+    .header-actions {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    button {
+      background: var(--bg-card-hover);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 0.45rem 0.9rem;
+      border-radius: 6px;
+      font-size: 0.85rem;
+      font-weight: 500;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      transition: all 0.15s ease;
+    }
+
+    button:hover {
+      background: #22222c;
+      border-color: #3f3f4e;
+    }
+
+    button:active {
+      transform: scale(0.97);
+    }
+
+    button.primary {
+      background: var(--accent-cyan);
+      color: #000;
+      font-weight: 600;
+      border-color: var(--accent-cyan);
+    }
+
+    button.primary:hover {
+      background: #33f3ff;
+      box-shadow: 0 0 12px rgba(0, 240, 255, 0.4);
+    }
+
+    button.danger {
+      background: rgba(255, 0, 85, 0.15);
+      color: var(--accent-magenta);
+      border-color: rgba(255, 0, 85, 0.4);
+    }
+
+    button.danger:hover {
+      background: rgba(255, 0, 85, 0.3);
+    }
+
+    /* Main Grid Layout */
+    .app-container {
+      display: grid;
+      grid-template-columns: 1fr 340px;
+      flex: 1;
+      height: calc(100vh - 49px);
+      overflow: hidden;
+    }
+
+    .vis-column {
+      display: flex;
+      flex-direction: column;
+      background: #050507;
+      position: relative;
+      overflow: hidden;
+    }
+
+    /* Stat Bar Overlay */
+    .metrics-bar {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      background: rgba(18, 18, 22, 0.85);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border);
+      z-index: 5;
+    }
+
+    .metric-card {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .metric-label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      letter-spacing: 0.05em;
+      margin-bottom: 0.15rem;
+    }
+
+    .metric-value {
+      font-size: 1.2rem;
+      font-weight: 700;
+      font-mono: monospace;
+      letter-spacing: -0.03em;
+    }
+
+    .metric-value.cyan { color: var(--accent-cyan); }
+    .metric-value.magenta { color: var(--accent-magenta); }
+    .metric-value.amber { color: var(--accent-amber); }
+    .metric-value.green { color: var(--accent-green); }
+
+    /* Canvas Areas */
+    .canvas-wrapper {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+    }
+
+    canvas#tspCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    .canvas-overlay-hint {
+      position: absolute;
+      bottom: 1rem;
+      left: 1rem;
+      background: rgba(18, 18, 22, 0.75);
+      border: 1px solid var(--border);
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      pointer-events: none;
+    }
+
+    /* Sidebar Controls & Graph */
+    .sidebar {
+      background: var(--bg-card);
+      border-left: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+    }
+
+    .sidebar-section {
+      padding: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .sidebar-title {
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .control-group {
+      margin-bottom: 0.85rem;
+    }
+
+    .control-group:last-child {
+      margin-bottom: 0;
+    }
+
+    .label-row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.8rem;
+      margin-bottom: 0.3rem;
+    }
+
+    .label-value {
+      font-weight: 600;
+      color: var(--accent-cyan);
+    }
+
+    input[type="range"] {
+      width: 100%;
+      height: 5px;
+      border-radius: 5px;
+      background: #272730;
+      outline: none;
+      accent-color: var(--accent-cyan);
+      cursor: pointer;
+    }
+
+    select {
+      width: 100%;
+      background: #181820;
+      color: var(--text-main);
+      border: 1px solid var(--border);
+      padding: 0.45rem 0.6rem;
+      border-radius: 6px;
+      font-size: 0.82rem;
+      outline: none;
+      cursor: pointer;
+    }
+
+    select:focus {
+      border-color: var(--accent-cyan);
+    }
+
+    /* Toggle Grid Buttons */
+    .preset-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.4rem;
+    }
+
+    .preset-btn {
+      padding: 0.4rem;
+      font-size: 0.75rem;
+      justify-content: center;
+    }
+
+    .preset-btn.active {
+      background: var(--accent-cyan);
+      color: #000;
+      border-color: var(--accent-cyan);
+    }
+
+    /* Checkbox Styles */
+    .checkbox-row {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 0.8rem;
+      cursor: pointer;
+      margin-top: 0.4rem;
+    }
+
+    .checkbox-row input {
+      accent-color: var(--accent-cyan);
+      width: 14px;
+      height: 14px;
+      cursor: pointer;
+    }
+
+    /* Analytics Section Canvas */
+    .graph-container {
+      height: 130px;
+      width: 100%;
+      background: #09090c;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      position: relative;
+    }
+
+    canvas#analyticsCanvas {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Collapsible Curriculum Reference Panel */
+    .info-panel {
+      background: #15151c;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      margin-top: 0.5rem;
+      overflow: hidden;
+    }
+
+    .info-header {
+      padding: 0.6rem 0.8rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      background: #1c1c26;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .info-body {
+      padding: 0.75rem;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      line-height: 1.45;
+      display: none;
+    }
+
+    .info-body.open {
+      display: block;
+    }
+
+    .info-item {
+      margin-bottom: 0.5rem;
+    }
+    .info-item:last-child { margin-bottom: 0; }
+    .info-item strong { color: var(--accent-amber); }
+
+    /* Custom Scrollbars */
+    ::-webkit-scrollbar {
+      width: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: var(--bg-card);
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #272735;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- Top Navigation Header -->
+  <header>
+    <div class="title-group">
+      <h1>Genetic Algorithms Demo (Travelling Salesman Problem) <span style="color: var(--text-muted); font-weight: 350; font-size: 11pt;"> | IB Computer Science with Mr Ornat</span></h1>
+    </div>
+    <div class="header-actions">
+      <button id="btnStep" title="Execute a single generation step">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 4 15 12 5 20 5 4"></polygon><line x1="19" y1="5" x2="19" y2="19"></line></svg>
+        Step
+      </button>
+      <button id="btnPlay" class="primary">
+        <svg id="playIcon" width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+        <span id="playText">Start Evolution</span>
+      </button>
+      <button id="btnReset" class="danger">Reset GA</button>
+    </div>
+  </header>
+
+  <div class="app-container">
+    <!-- Visualization Area -->
+    <div class="vis-column">
+      <!-- Real-time Metrics Readout Bar -->
+      <div class="metrics-bar">
+        <div class="metric-card">
+          <span class="metric-label">Generation</span>
+          <span id="metricGen" class="metric-value">0</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Best Distance</span>
+          <span id="metricBestDist" class="metric-value magenta">0.00</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Current Gen Best</span>
+          <span id="metricCurrDist" class="metric-value cyan">0.00</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Fitness (1/Dist)</span>
+          <span id="metricFitness" class="metric-value green">0.0000</span>
+        </div>
+        <div class="metric-card">
+          <span class="metric-label">Diversity</span>
+          <span id="metricDiversity" class="metric-value amber">100%</span>
+        </div>
+      </div>
+
+      <!-- Main Interactive Canvas -->
+      <div class="canvas-wrapper">
+        <canvas id="tspCanvas"></canvas>
+        <div class="canvas-overlay-hint">
+          Click canvas to add cities manually. Drag cities to reposition.
+        </div>
+      </div>
+    </div>
+
+    <!-- Right Control Sidebar -->
+    <div class="sidebar">
+      
+      <!-- Preset Maps Section -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">
+          <span>City Distribution Preset</span>
+          <span id="cityCountTag" style="color: var(--accent-amber);">30 Cities</span>
+        </div>
+        <div class="preset-grid">
+          <button class="preset-btn active" data-preset="random">Random</button>
+          <button class="preset-btn" data-preset="circle">Circle</button>
+          <button class="preset-btn" data-preset="grid">Grid</button>
+          <button class="preset-btn" data-preset="clusters">Clusters</button>
+          <button class="preset-btn" data-preset="concentric">Concentric</button>
+          <button class="preset-btn" id="btnClearCities" style="color: var(--accent-magenta);">Clear</button>
+        </div>
+        <div class="control-group" style="margin-top: 0.75rem;">
+          <div class="label-row">
+            <span>Number of Cities</span>
+            <span id="valCities" class="label-value">30</span>
+          </div>
+          <input type="range" id="sliderCities" min="5" max="100" value="30">
+        </div>
+      </div>
+
+      <!-- Live Parameter Controls -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">GA Hyperparameters</div>
+        
+        <div class="control-group">
+          <div class="label-row">
+            <span>Population Size</span>
+            <span id="valPopSize" class="label-value">150</span>
+          </div>
+          <input type="range" id="sliderPopSize" min="20" max="500" step="10" value="150">
+        </div>
+
+        <div class="control-group">
+          <div class="label-row">
+            <span>Mutation Rate</span>
+            <span id="valMutation" class="label-value">5%</span>
+          </div>
+          <input type="range" id="sliderMutation" min="0" max="50" step="1" value="5">
+        </div>
+
+        <div class="control-group">
+          <div class="label-row">
+            <span>Elitism Rate</span>
+            <span id="valElitism" class="label-value">5%</span>
+          </div>
+          <input type="range" id="sliderElitism" min="0" max="25" step="1" value="5">
+        </div>
+
+        <div class="control-group">
+          <div class="label-row"><span>Selection Operator</span></div>
+          <select id="selectSelection">
+            <option value="tournament">Tournament Selection (k=5)</option>
+            <option value="roulette">Roulette Wheel (Fitness Proportional)</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <div class="label-row"><span>Crossover Operator</span></div>
+          <select id="selectCrossover">
+            <option value="ox1">Order Crossover (OX1)</option>
+            <option value="cx">Cycle Crossover (CX)</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <div class="label-row"><span>Mutation Type</span></div>
+          <select id="selectMutationType">
+            <option value="swap">Swap Mutation</option>
+            <option value="inversion">Inversion (2-Opt) Mutation</option>
+          </select>
+        </div>
+
+        <div class="control-group">
+          <div class="label-row">
+            <span>Execution Speed</span>
+            <span id="valSpeed" class="label-value">1x</span>
+          </div>
+          <input type="range" id="sliderSpeed" min="1" max="10" step="1" value="1">
+        </div>
+      </div>
+
+      <!-- Visual Layers & Overlays -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">Visual Overlays</div>
+        <label class="checkbox-row">
+          <input type="checkbox" id="chkShowPopulation" checked>
+          <span>Show Population Candidates (Ghost Mesh)</span>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="chkShowBest" checked>
+          <span>Highlight Overall Best Route (Magenta)</span>
+        </label>
+        <label class="checkbox-row">
+          <input type="checkbox" id="chkShowCurrent" checked>
+          <span>Show Current Generation Best (Cyan)</span>
+        </label>
+      </div>
+
+      <!-- Real-Time Analytics Graph -->
+      <div class="sidebar-section">
+        <div class="sidebar-title">
+          <span>Fitness & Diversity Curve</span>
+        </div>
+        <div class="graph-container">
+          <canvas id="analyticsCanvas"></canvas>
+        </div>
+        <div style="display: flex; justify-content: space-between; font-size: 0.68rem; margin-top: 0.3rem; color: var(--text-muted);">
+          <span style="color: var(--accent-magenta);">■ Best Fitness</span>
+          <span style="color: var(--accent-cyan);">■ Avg Fitness</span>
+          <span style="color: var(--accent-amber);">■ Diversity %</span>
+        </div>
+      </div>
+
+      <!-- IB Curriculum Quick Reference Accordion -->
+      <div class="sidebar-section" style="border-bottom: none;">
+        <div class="info-panel">
+          <div class="info-header" id="infoToggle">
+            <span>Concept Reference</span>
+            <span id="infoArrow">▼</span>
+          </div>
+          <div class="info-body" id="infoBody">
+            <div class="info-item">
+              <strong>1. Population:</strong> Pool of valid TSP city permutations.
+            </div>
+            <div class="info-item">
+              <strong>2. Fitness Function:</strong> Evaluates route quality; higher value indicates shorter route.
+            </div>
+            <div class="info-item">
+              <strong>3. Selection:</strong> Chooses fit parent routes for producing next generation.
+            </div>
+            <div class="info-item">
+              <strong>4. Crossover:</strong> Combines permutation segments from two parents without duplicating cities.
+            </div>
+            <div class="info-item">
+              <strong>5. Mutation:</strong> Introduces variation by swapping or reversing city sub-sequences to prevent premature convergence.
+            </div>
+            <div class="info-item">
+              <strong>6. Evaluation:</strong> Quantitative comparison of metrics across generations.
+            </div>
+            <div class="info-item">
+              <strong>7. Termination:</strong> Triggered manually or when population diversity stagnates near 0%.
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    /**
+     * IB DP CS Topic A.4 - Genetic Algorithm TSP Simulator
+     * Self-contained Vanilla JS Implementation
+     */
+
+    // --- Global Application State ---
+    const state = {
+      cities: [],
+      population: [],
+      fitnesses: [],
+      bestRoute: null,
+      bestDistance: Infinity,
+      currentBestRoute: null,
+      currentBestDistance: Infinity,
+      generation: 0,
+      isRunning: false,
+      
+      // GA Parameters
+      popSize: 150,
+      mutationRate: 0.05,
+      elitismRate: 0.05,
+      selectionMethod: 'tournament',
+      crossoverMethod: 'ox1',
+      mutationType: 'swap',
+      speed: 1,
+
+      // Visualization toggles
+      showPopulation: true,
+      showBest: true,
+      showCurrent: true,
+
+      // Analytics history
+      historyBestFitness: [],
+      historyAvgFitness: [],
+      historyDiversity: [],
+
+      // Dragging state
+      draggedCityIndex: null
+    };
+
+    // --- DOM Elements ---
+    const tspCanvas = document.getElementById('tspCanvas');
+    const tspCtx = tspCanvas.getContext('2d');
+    const analyticsCanvas = document.getElementById('analyticsCanvas');
+    const analyticsCtx = analyticsCanvas.getContext('2d');
+
+    // UI Controls
+    const btnPlay = document.getElementById('btnPlay');
+    const playIcon = document.getElementById('playIcon');
+    const playText = document.playText || document.getElementById('playText');
+    const btnStep = document.getElementById('btnStep');
+    const btnReset = document.getElementById('btnReset');
+    const btnClearCities = document.getElementById('btnClearCities');
+
+    // Metrics
+    const metricGen = document.getElementById('metricGen');
+    const metricBestDist = document.getElementById('metricBestDist');
+    const metricCurrDist = document.getElementById('metricCurrDist');
+    const metricFitness = document.getElementById('metricFitness');
+    const metricDiversity = document.getElementById('metricDiversity');
+    const cityCountTag = document.getElementById('cityCountTag');
+
+    // Sliders
+    const sliderCities = document.getElementById('sliderCities');
+    const valCities = document.getElementById('valCities');
+    const sliderPopSize = document.getElementById('sliderPopSize');
+    const valPopSize = document.getElementById('valPopSize');
+    const sliderMutation = document.getElementById('sliderMutation');
+    const valMutation = document.getElementById('valMutation');
+    const sliderElitism = document.getElementById('sliderElitism');
+    const valElitism = document.getElementById('valElitism');
+    const sliderSpeed = document.getElementById('sliderSpeed');
+    const valSpeed = document.getElementById('valSpeed');
+
+    // Selects
+    const selectSelection = document.getElementById('selectSelection');
+    const selectCrossover = document.getElementById('selectCrossover');
+    const selectMutationType = document.getElementById('selectMutationType');
+
+    // Checkboxes
+    const chkShowPopulation = document.getElementById('chkShowPopulation');
+    const chkShowBest = document.getElementById('chkShowBest');
+    const chkShowCurrent = document.getElementById('chkShowCurrent');
+
+    // Preset buttons
+    const presetBtns = document.querySelectorAll('.preset-btn[data-preset]');
+
+    // Accordion
+    const infoToggle = document.getElementById('infoToggle');
+    const infoBody = document.getElementById('infoBody');
+    const infoArrow = document.getElementById('infoArrow');
+
+    // --- Initialization & Setup ---
+    function init() {
+      resizeCanvases();
+      window.addEventListener('resize', resizeCanvases);
+
+      setupEventListeners();
+      generateCityPreset('random', parseInt(sliderCities.value));
+      resetGA();
+
+      requestAnimationFrame(renderLoop);
+    }
+
+    function resizeCanvases() {
+      const wrapper = tspCanvas.parentElement;
+      tspCanvas.width = wrapper.clientWidth;
+      tspCanvas.height = wrapper.clientHeight;
+
+      const graphWrapper = analyticsCanvas.parentElement;
+      analyticsCanvas.width = graphWrapper.clientWidth;
+      analyticsCanvas.height = graphWrapper.clientHeight;
+
+      draw();
+    }
+
+    // --- City Map Presets ---
+    function generateCityPreset(type, count) {
+      state.cities = [];
+      const padding = 60;
+      const w = tspCanvas.width - padding * 2;
+      const h = tspCanvas.height - padding * 2;
+      const cx = tspCanvas.width / 2;
+      const cy = tspCanvas.height / 2;
+
+      if (type === 'random') {
+        for (let i = 0; i < count; i++) {
+          state.cities.push({
+            x: padding + Math.random() * w,
+            y: padding + Math.random() * h
+          });
+        }
+      } else if (type === 'circle') {
+        const radius = Math.min(w, h) / 2.2;
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2;
+          state.cities.push({
+            x: cx + radius * Math.cos(angle),
+            y: cy + radius * Math.sin(angle)
+          });
+        }
+      } else if (type === 'grid') {
+        const cols = Math.ceil(Math.sqrt(count));
+        const rows = Math.ceil(count / cols);
+        const dx = w / (cols - 1 || 1);
+        const dy = h / (rows - 1 || 1);
+        let added = 0;
+        for (let r = 0; r < rows; r++) {
+          for (let c = 0; c < cols; c++) {
+            if (added < count) {
+              state.cities.push({
+                x: padding + c * dx,
+                y: padding + r * dy
+              });
+              added++;
+            }
+          }
+        }
+      } else if (type === 'clusters') {
+        const numClusters = 4;
+        const centers = [];
+        for (let k = 0; k < numClusters; k++) {
+          centers.push({
+            x: padding + Math.random() * w,
+            y: padding + Math.random() * h
+          });
+        }
+        for (let i = 0; i < count; i++) {
+          const c = centers[i % numClusters];
+          state.cities.push({
+            x: Math.max(padding, Math.min(tspCanvas.width - padding, c.x + (Math.random() - 0.5) * 120)),
+            y: Math.max(padding, Math.min(tspCanvas.height - padding, c.y + (Math.random() - 0.5) * 120))
+          });
+        }
+      } else if (type === 'concentric') {
+        const r1 = Math.min(w, h) / 4;
+        const r2 = Math.min(w, h) / 2.2;
+        const half = Math.floor(count / 2);
+        for (let i = 0; i < half; i++) {
+          const angle = (i / half) * Math.PI * 2;
+          state.cities.push({ x: cx + r1 * Math.cos(angle), y: cy + r1 * Math.sin(angle) });
+        }
+        for (let i = half; i < count; i++) {
+          const angle = ((i - half) / (count - half)) * Math.PI * 2;
+          state.cities.push({ x: cx + r2 * Math.cos(angle), y: cy + r2 * Math.sin(angle) });
+        }
+      }
+
+      cityCountTag.textContent = `${state.cities.length} Cities`;
+      resetGA();
+    }
+
+    // --- Distance Calculation ---
+    function calcDistance(route) {
+      let d = 0;
+      const num = route.length;
+      for (let i = 0; i < num; i++) {
+        const c1 = state.cities[route[i]];
+        const c2 = state.cities[route[(i + 1) % num]];
+        const dx = c1.x - c2.x;
+        const dy = c1.y - c2.y;
+        d += Math.sqrt(dx * dx + dy * dy);
+      }
+      return d;
+    }
+
+    // --- Genetic Algorithm Core Engine ---
+
+    function resetGA() {
+      state.generation = 0;
+      state.bestDistance = Infinity;
+      state.bestRoute = null;
+      state.currentBestDistance = Infinity;
+      state.currentBestRoute = null;
+      state.population = [];
+      state.fitnesses = [];
+      state.historyBestFitness = [];
+      state.historyAvgFitness = [];
+      state.historyDiversity = [];
+
+      if (state.cities.length < 2) {
+        draw();
+        updateMetrics();
+        return;
+      }
+
+      // Initialize population with random permutation solutions
+      const baseRoute = Array.from({ length: state.cities.length }, (_, i) => i);
+      for (let i = 0; i < state.popSize; i++) {
+        const shuffled = [...baseRoute];
+        // Fisher-Yates Shuffle
+        for (let j = shuffled.length - 1; j > 0; j--) {
+          const k = Math.floor(Math.random() * (j + 1));
+          [shuffled[j], shuffled[k]] = [shuffled[k], shuffled[j]];
+        }
+        state.population.push(shuffled);
+      }
+
+      evaluatePopulation();
+      draw();
+      updateMetrics();
+    }
+
+    function evaluatePopulation() {
+      state.fitnesses = [];
+      let currentMinDist = Infinity;
+      let currentMinRoute = null;
+      let totalFitness = 0;
+
+      for (let i = 0; i < state.population.length; i++) {
+        const route = state.population[i];
+        const dist = calcDistance(route);
+        // Fitness = 1 / Distance
+        const fit = 1 / (dist + 1e-6);
+        state.fitnesses.push(fit);
+        totalFitness += fit;
+
+        if (dist < currentMinDist) {
+          currentMinDist = dist;
+          currentMinRoute = [...route];
+        }
+
+        if (dist < state.bestDistance) {
+          state.bestDistance = dist;
+          state.bestRoute = [...route];
+        }
+      }
+
+      state.currentBestDistance = currentMinDist;
+      state.currentBestRoute = currentMinRoute;
+
+      // Calculate population diversity (unique edges metric)
+      const diversity = calculateDiversity();
+
+      // Record analytics history
+      const bestFit = 1 / state.bestDistance;
+      const avgFit = totalFitness / state.population.length;
+      state.historyBestFitness.push(bestFit);
+      state.historyAvgFitness.push(avgFit);
+      state.historyDiversity.push(diversity);
+
+      if (state.historyBestFitness.length > 100) {
+        state.historyBestFitness.shift();
+        state.historyAvgFitness.shift();
+        state.historyDiversity.shift();
+      }
+    }
+
+    function calculateDiversity() {
+      if (state.population.length === 0) return 100;
+      const edgeSet = new Set();
+      const n = state.cities.length;
+
+      for (let p = 0; p < Math.min(state.population.length, 50); p++) {
+        const route = state.population[p];
+        for (let i = 0; i < n; i++) {
+          const u = route[i];
+          const v = route[(i + 1) % n];
+          const key = u < v ? `${u}-${v}` : `${v}-${u}`;
+          edgeSet.add(key);
+        }
+      }
+      const maxPossibleEdges = (n * (n - 1)) / 2;
+      return Math.min(100, Math.round((edgeSet.size / Math.max(1, maxPossibleEdges)) * 100));
+    }
+
+    function stepGA() {
+      if (state.cities.length < 2) return;
+
+      const newPopulation = [];
+
+      // 1. Elitism: Retain top percentage of best solutions unchanged
+      const numElites = Math.floor(state.popSize * state.elitismRate);
+      if (numElites > 0) {
+        // Find indices sorted by fitness descending
+        const indexedFitness = state.fitnesses.map((f, idx) => ({ f, idx }));
+        indexedFitness.sort((a, b) => b.f - a.f);
+
+        for (let i = 0; i < numElites; i++) {
+          newPopulation.push([...state.population[indexedFitness[i].idx]]);
+        }
+      }
+
+      // 2. Generate remaining offspring via Crossover and Mutation
+      while (newPopulation.length < state.popSize) {
+        const parentA = selectParent();
+        const parentB = selectParent();
+
+        let offspring;
+        if (state.crossoverMethod === 'ox1') {
+          offspring = orderCrossover(parentA, parentB);
+        } else {
+          offspring = cycleCrossover(parentA, parentB);
+        }
+
+        // Apply Mutation
+        if (Math.random() < state.mutationRate) {
+          if (state.mutationType === 'swap') {
+            mutateSwap(offspring);
+          } else {
+            mutateInversion(offspring);
+          }
+        }
+
+        newPopulation.push(offspring);
+      }
+
+      state.population = newPopulation;
+      state.generation++;
+      evaluatePopulation();
+    }
+
+    // --- Selection Operators ---
+    function selectParent() {
+      if (state.selectionMethod === 'tournament') {
+        // Tournament selection (size k=5)
+        const k = 5;
+        let bestIdx = Math.floor(Math.random() * state.population.length);
+        for (let i = 1; i < k; i++) {
+          const randIdx = Math.floor(Math.random() * state.population.length);
+          if (state.fitnesses[randIdx] > state.fitnesses[bestIdx]) {
+            bestIdx = randIdx;
+          }
+        }
+        return state.population[bestIdx];
+      } else {
+        // Roulette Wheel Selection (Fitness Proportional)
+        const totalFitness = state.fitnesses.reduce((a, b) => a + b, 0);
+        let rand = Math.random() * totalFitness;
+        for (let i = 0; i < state.population.length; i++) {
+          rand -= state.fitnesses[i];
+          if (rand <= 0) {
+            return state.population[i];
+          }
+        }
+        return state.population[state.population.length - 1];
+      }
+    }
+
+    // --- Crossover Operators ---
+    // Order Crossover (OX1)
+    function orderCrossover(p1, p2) {
+      const len = p1.length;
+      const start = Math.floor(Math.random() * len);
+      const end = Math.floor(Math.random() * (len - start)) + start;
+
+      const child = new Array(len).fill(-1);
+
+      // Copy slice from parent 1
+      for (let i = start; i <= end; i++) {
+        child[i] = p1[i];
+      }
+
+      // Fill remaining from parent 2 sequentially
+      let currentChildIdx = (end + 1) % len;
+      for (let i = 0; i < len; i++) {
+        const p2Idx = (end + 1 + i) % len;
+        const val = p2[p2Idx];
+        if (!child.includes(val)) {
+          child[currentChildIdx] = val;
+          currentChildIdx = (currentChildIdx + 1) % len;
+        }
+      }
+      return child;
+    }
+
+    // Cycle Crossover (CX)
+    function cycleCrossover(p1, p2) {
+      const len = p1.length;
+      const child = new Array(len).fill(-1);
+
+      let idx = 0;
+      while (child[idx] === -1) {
+        child[idx] = p1[idx];
+        const valInP2 = p2[idx];
+        idx = p1.indexOf(valInP2);
+      }
+
+      for (let i = 0; i < len; i++) {
+        if (child[i] === -1) {
+          child[i] = p2[i];
+        }
+      }
+      return child;
+    }
+
+    // --- Mutation Operators ---
+    function mutateSwap(route) {
+      const idx1 = Math.floor(Math.random() * route.length);
+      let idx2 = Math.floor(Math.random() * route.length);
+      while (idx1 === idx2) {
+        idx2 = Math.floor(Math.random() * route.length);
+      }
+      [route[idx1], route[idx2]] = [route[idx2], route[idx1]];
+    }
+
+    function mutateInversion(route) {
+      const start = Math.floor(Math.random() * route.length);
+      const end = Math.floor(Math.random() * (route.length - start)) + start;
+      
+      // Reverse segment in-place
+      let i = start, j = end;
+      while (i < j) {
+        [route[i], route[j]] = [route[j], route[i]];
+        i++;
+        j--;
+      }
+    }
+
+    // --- Main Animation Render Loop ---
+    function renderLoop() {
+      if (state.isRunning) {
+        for (let s = 0; s < state.speed; s++) {
+          stepGA();
+        }
+        draw();
+        updateMetrics();
+      }
+      requestAnimationFrame(renderLoop);
+    }
+
+    // --- Canvas Rendering Functions ---
+    function draw() {
+      // Clear Visualization Canvas
+      tspCtx.fillStyle = '#050507';
+      tspCtx.fillRect(0, 0, tspCanvas.width, tspCanvas.height);
+
+      if (state.cities.length === 0) return;
+
+      // 1. Draw Ghost Population Mesh (Background solutions)
+      if (state.showPopulation && state.population.length > 0) {
+        tspCtx.lineWidth = 0.5;
+        tspCtx.strokeStyle = 'rgba(255, 255, 255, 0.04)';
+
+        const sampleSize = Math.min(state.population.length, 30);
+        for (let p = 0; p < sampleSize; p++) {
+          const route = state.population[p];
+          tspCtx.beginPath();
+          for (let i = 0; i < route.length; i++) {
+            const c1 = state.cities[route[i]];
+            const c2 = state.cities[route[(i + 1) % route.length]];
+            if (i === 0) tspCtx.moveTo(c1.x, c1.y);
+            else tspCtx.lineTo(c1.x, c1.y);
+          }
+          tspCtx.closePath();
+          tspCtx.stroke();
+        }
+      }
+
+      // 2. Draw Current Generation Best Route (Cyan)
+      if (state.showCurrent && state.currentBestRoute) {
+        drawRoute(tspCtx, state.currentBestRoute, '#00f0ff', 2.5, [4, 4]);
+      }
+
+      // 3. Draw Overall Best Route (Magenta Glow)
+      if (state.showBest && state.bestRoute) {
+        tspCtx.shadowColor = '#ff0055';
+        tspCtx.shadowBlur = 10;
+        drawRoute(tspCtx, state.bestRoute, '#ff0055', 3.5);
+        tspCtx.shadowBlur = 0; // Reset glow
+      }
+
+      // 4. Draw City Nodes & Labels
+      for (let i = 0; i < state.cities.length; i++) {
+        const city = state.cities[i];
+
+        // Outer Amber Ring
+        tspCtx.beginPath();
+        tspCtx.arc(city.x, city.y, 7, 0, Math.PI * 2);
+        tspCtx.fillStyle = '#ffb700';
+        tspCtx.fill();
+
+        // Inner Core
+        tspCtx.beginPath();
+        tspCtx.arc(city.x, city.y, 3, 0, Math.PI * 2);
+        tspCtx.fillStyle = '#000';
+        tspCtx.fill();
+
+        // City Index Badge Text
+        tspCtx.fillStyle = '#8e8ea0';
+        tspCtx.font = '10px sans-serif';
+        tspCtx.fillText(i.toString(), city.x + 9, city.y + 3);
+      }
+
+      // Render Analytics Graph
+      drawAnalytics();
+    }
+
+    function drawRoute(ctx, route, color, width, dash = []) {
+      ctx.lineWidth = width;
+      ctx.strokeStyle = color;
+      ctx.setLineDash(dash);
+      ctx.beginPath();
+      for (let i = 0; i < route.length; i++) {
+        const c1 = state.cities[route[i]];
+        const c2 = state.cities[route[(i + 1) % route.length]];
+        if (i === 0) ctx.moveTo(c1.x, c1.y);
+        else ctx.lineTo(c1.x, c1.y);
+      }
+      ctx.closePath();
+      ctx.stroke();
+      ctx.setLineDash([]); // Reset dash
+    }
+
+    // --- Analytics Graph Rendering ---
+    function drawAnalytics() {
+      const w = analyticsCanvas.width;
+      const h = analyticsCanvas.height;
+
+      analyticsCtx.fillStyle = '#09090c';
+      analyticsCtx.fillRect(0, 0, w, h);
+
+      if (state.historyBestFitness.length < 2) return;
+
+      const pad = 12;
+      const graphW = w - pad * 2;
+      const graphH = h - pad * 2;
+
+      // Find Max Fitness for Scaling
+      const maxFit = Math.max(...state.historyBestFitness, 1e-5);
+
+      // Draw Gridlines
+      analyticsCtx.strokeStyle = '#1d1d26';
+      analyticsCtx.lineWidth = 1;
+      analyticsCtx.beginPath();
+      analyticsCtx.moveTo(pad, pad + graphH / 2);
+      analyticsCtx.lineTo(pad + graphW, pad + graphH / 2);
+      analyticsCtx.stroke();
+
+      // Draw Best Fitness Line (Magenta)
+      drawLineChart(analyticsCtx, state.historyBestFitness, maxFit, '#ff0055', pad, graphW, graphH, h);
+
+      // Draw Avg Fitness Line (Cyan)
+      drawLineChart(analyticsCtx, state.historyAvgFitness, maxFit, '#00f0ff', pad, graphW, graphH, h);
+
+      // Draw Diversity Line (Amber 0-100%)
+      drawLineChart(analyticsCtx, state.historyDiversity, 100, '#ffb700', pad, graphW, graphH, h, true);
+    }
+
+    function drawLineChart(ctx, data, maxVal, color, pad, graphW, graphH, canvasH, isPercentage = false) {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 1.8;
+      ctx.beginPath();
+      const len = data.length;
+      for (let i = 0; i < len; i++) {
+        const x = pad + (i / (len - 1)) * graphW;
+        const normalized = isPercentage ? data[i] / 100 : data[i] / maxVal;
+        const y = canvasH - pad - normalized * graphH;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      }
+      ctx.stroke();
+    }
+
+    // --- Metrics Readout Updates ---
+    function updateMetrics() {
+      metricGen.textContent = state.generation;
+      metricBestDist.textContent = state.bestDistance === Infinity ? '0.00' : state.bestDistance.toFixed(1);
+      metricCurrDist.textContent = state.currentBestDistance === Infinity ? '0.00' : state.currentBestDistance.toFixed(1);
+      
+      const bestFit = state.bestDistance === Infinity ? 0 : (1 / state.bestDistance);
+      metricFitness.textContent = bestFit.toFixed(6);
+
+      const diversity = state.historyDiversity.length > 0 ? state.historyDiversity[state.historyDiversity.length - 1] : 100;
+      metricDiversity.textContent = `${diversity}%`;
+    }
+
+    // --- User Event Handlers ---
+    function setupEventListeners() {
+      // Play / Pause
+      btnPlay.addEventListener('click', () => {
+        state.isRunning = !state.isRunning;
+        if (state.isRunning) {
+          btnPlay.classList.add('danger');
+          btnPlay.classList.remove('primary');
+          playIcon.innerHTML = `<rect x="6" y="4" width="4" height="16"></rect><rect x="14" y="4" width="4" height="16"></rect>`;
+          playText.textContent = 'Pause Evolution';
+        } else {
+          btnPlay.classList.remove('danger');
+          btnPlay.classList.add('primary');
+          playIcon.innerHTML = `<polygon points="5 3 19 12 5 21 5 3"></polygon>`;
+          playText.textContent = 'Start Evolution';
+        }
+      });
+
+      // Step Button
+      btnStep.addEventListener('click', () => {
+        if (state.isRunning) {
+          btnPlay.click(); // Pause if currently running
+        }
+        stepGA();
+        draw();
+        updateMetrics();
+      });
+
+      // Reset Button
+      btnReset.addEventListener('click', () => {
+        if (state.isRunning) btnPlay.click();
+        resetGA();
+      });
+
+      // Clear Cities Button
+      btnClearCities.addEventListener('click', () => {
+        if (state.isRunning) btnPlay.click();
+        state.cities = [];
+        cityCountTag.textContent = '0 Cities';
+        resetGA();
+      });
+
+      // Map Presets Buttons
+      presetBtns.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+          presetBtns.forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const preset = btn.dataset.preset;
+          generateCityPreset(preset, parseInt(sliderCities.value));
+        });
+      });
+
+      // City Count Slider
+      sliderCities.addEventListener('input', (e) => {
+        const val = parseInt(e.target.value);
+        valCities.textContent = val;
+        const activePresetBtn = document.querySelector('.preset-btn.active');
+        const presetType = activePresetBtn ? activePresetBtn.dataset.preset : 'random';
+        generateCityPreset(presetType, val);
+      });
+
+      // GA Hyperparameter Sliders
+      sliderPopSize.addEventListener('input', (e) => {
+        state.popSize = parseInt(e.target.value);
+        valPopSize.textContent = state.popSize;
+        resetGA();
+      });
+
+      sliderMutation.addEventListener('input', (e) => {
+        state.mutationRate = parseInt(e.target.value) / 100;
+        valMutation.textContent = `${e.target.value}%`;
+      });
+
+      sliderElitism.addEventListener('input', (e) => {
+        state.elitismRate = parseInt(e.target.value) / 100;
+        valElitism.textContent = `${e.target.value}%`;
+      });
+
+      sliderSpeed.addEventListener('input', (e) => {
+        state.speed = parseInt(e.target.value);
+        valSpeed.textContent = `${state.speed}x`;
+      });
+
+      // Select Dropdowns
+      selectSelection.addEventListener('change', (e) => { state.selectionMethod = e.target.value; });
+      selectCrossover.addEventListener('change', (e) => { state.crossoverMethod = e.target.value; });
+      selectMutationType.addEventListener('change', (e) => { state.mutationType = e.target.value; });
+
+      // Overlays
+      chkShowPopulation.addEventListener('change', (e) => { state.showPopulation = e.target.checked; draw(); });
+      chkShowBest.addEventListener('change', (e) => { state.showBest = e.target.checked; draw(); });
+      chkShowCurrent.addEventListener('change', (e) => { state.showCurrent = e.target.checked; draw(); });
+
+      // Interactive Canvas Click / Drag Handlers
+      tspCanvas.addEventListener('mousedown', (e) => {
+        const rect = tspCanvas.getBoundingClientRect();
+        const mouseX = e.clientX - rect.left;
+        const mouseY = e.clientY - rect.top;
+
+        // Check if clicked near an existing city to drag
+        let foundIdx = -1;
+        for (let i = 0; i < state.cities.length; i++) {
+          const c = state.cities[i];
+          const dist = Math.hypot(c.x - mouseX, c.y - mouseY);
+          if (dist < 14) {
+            foundIdx = i;
+            break;
+          }
+        }
+
+        if (foundIdx !== -1) {
+          state.draggedCityIndex = foundIdx;
+        } else {
+          // Add a new city
+          state.cities.push({ x: mouseX, y: mouseY });
+          sliderCities.value = state.cities.length;
+          valCities.textContent = state.cities.length;
+          cityCountTag.textContent = `${state.cities.length} Cities`;
+          resetGA();
+        }
+      });
+
+      tspCanvas.addEventListener('mousemove', (e) => {
+        if (state.draggedCityIndex !== null) {
+          const rect = tspCanvas.getBoundingClientRect();
+          state.cities[state.draggedCityIndex].x = e.clientX - rect.left;
+          state.cities[state.draggedCityIndex].y = e.clientY - rect.top;
+          
+          if (!state.isRunning) {
+            evaluatePopulation();
+            draw();
+            updateMetrics();
+          }
+        }
+      });
+
+      window.addEventListener('mouseup', () => {
+        if (state.draggedCityIndex !== null) {
+          state.draggedCityIndex = null;
+          resetGA();
+        }
+      });
+
+      // Info Accordion Toggle
+      infoToggle.addEventListener('click', () => {
+        infoBody.classList.toggle('open');
+        infoArrow.textContent = infoBody.classList.contains('open') ? '▲' : '▼';
+      });
+    }
+
+    // Run on Page Load
+    window.onload = init;
+  </script>
+</body>
+</html>

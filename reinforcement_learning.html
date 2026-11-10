@@ -1,0 +1,634 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reinforcement Learning Demo</title>
+    <style>
+        :root {
+            --bg-dark: #0a0d14;
+            --panel-bg: #121824;
+            --accent-blue: #3b82f6;
+            --accent-green: #10b981;
+            --accent-amber: #f59e0b;
+            --accent-red: #ef4444;
+            --text-main: #f3f4f6;
+            --text-muted: #9ca3af;
+            --border-color: #1f2937;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+
+        body {
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        header {
+            background-color: var(--panel-bg);
+            padding: 1rem 1.5rem;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        h1 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: var(--text-main);
+        }
+
+        .tag {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: var(--accent-blue);
+            padding: 0.25rem 0.6rem;
+            border-radius: 4px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+        }
+
+        .app-container {
+            display: grid;
+            grid-template-columns: 1fr 340px;
+            gap: 1.5rem;
+            padding: 1.5rem;
+            max-width: 1200px;
+            margin: 0 auto;
+            width: 100%;
+            flex-grow: 1;
+        }
+
+        .panel {
+            background-color: var(--panel-bg);
+            border-radius: 8px;
+            border: 1px solid var(--border-color);
+            padding: 1.25rem;
+            display: flex;
+            flex-direction: column;
+            gap: 1.25rem;
+        }
+
+        /* Grid World */
+        .grid-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
+            position: relative;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(5, 80px);
+            grid-template-rows: repeat(5, 80px);
+            gap: 6px;
+            background-color: var(--border-color);
+            padding: 6px;
+            border-radius: 8px;
+        }
+
+        .cell {
+            background-color: #1a2234;
+            border-radius: 4px;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            transition: background-color 0.2s ease;
+            cursor: pointer;
+        }
+
+        .cell.wall {
+            background-color: #374151;
+            cursor: default;
+        }
+
+        .cell.goal {
+            background-color: rgba(16, 185, 129, 0.2);
+            border: 2px solid var(--accent-green);
+        }
+
+        .cell.hazard {
+            background-color: rgba(239, 68, 68, 0.2);
+            border: 2px solid var(--accent-red);
+        }
+
+        /* Policy Direction Arrow Overlay */
+        .arrow {
+            position: absolute;
+            font-size: 1.4rem;
+            font-weight: bold;
+            color: rgba(59, 130, 246, 0.85);
+            pointer-events: none;
+            z-index: 2;
+        }
+
+        .agent {
+            font-size: 2rem;
+            z-index: 10;
+            transition: transform 0.1s ease-out;
+            pointer-events: none;
+        }
+
+        /* Hover Q-Inspector Card */
+        .q-inspector {
+            display: none;
+            position: absolute;
+            background: #1e293b;
+            border: 1px solid var(--accent-blue);
+            border-radius: 6px;
+            padding: 0.6rem 0.8rem;
+            font-size: 0.8rem;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+            pointer-events: none;
+            z-index: 100;
+            width: 140px;
+        }
+
+        .q-inspector-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.25rem 0.5rem;
+            margin-top: 0.4rem;
+        }
+
+        .q-item {
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .q-item.best {
+            color: var(--accent-green);
+            font-weight: bold;
+        }
+
+        /* Controls */
+        .control-group {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+        }
+
+        label {
+            font-size: 0.85rem;
+            color: var(--text-muted);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .btn {
+            background-color: var(--accent-blue);
+            color: white;
+            border: none;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: opacity 0.2s;
+            font-size: 0.95rem;
+        }
+
+        .btn:hover {
+            opacity: 0.9;
+        }
+
+        .btn-secondary {
+            background-color: #242d40;
+            color: var(--text-main);
+        }
+
+        .btn-danger {
+            background-color: rgba(239, 68, 68, 0.2);
+            color: var(--accent-red);
+            border: 1px solid var(--accent-red);
+        }
+
+        input[type="range"] {
+            width: 100%;
+            accent-color: var(--accent-blue);
+        }
+
+        /* Checkbox styling */
+        .toggle-label {
+            cursor: pointer;
+            user-select: none;
+        }
+        
+        .toggle-label input {
+            margin-right: 0.5rem;
+            accent-color: var(--accent-blue);
+        }
+
+        /* Live Status Badge */
+        .status-badge {
+            padding: 0.75rem;
+            border-radius: 6px;
+            font-weight: 600;
+            text-align: center;
+            font-size: 0.9rem;
+            letter-spacing: 0.5px;
+        }
+
+        .status-badge.explore {
+            background-color: rgba(245, 158, 11, 0.15);
+            color: var(--accent-amber);
+            border: 1px solid var(--accent-amber);
+        }
+
+        .status-badge.exploit {
+            background-color: rgba(59, 130, 246, 0.15);
+            color: var(--accent-blue);
+            border: 1px solid var(--accent-blue);
+        }
+
+        .stat-card {
+            background-color: #161e2e;
+            padding: 0.75rem 1rem;
+            border-radius: 6px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .stat-val {
+            font-size: 1.25rem;
+            font-weight: 700;
+        }
+
+        .legend {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.5rem;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Reinforcement Learning Demo</h1>
+        <span class="tag">IB Computer Science with Mr Ornat</span>
+    </header>
+
+    <div class="app-container">
+        <!-- Left Column: Gridworld -->
+        <div class="panel grid-container">
+            <div class="grid" id="gridworld"></div>
+
+            <!-- Hover Inspector Tooltip -->
+            <div id="qInspector" class="q-inspector">
+                <strong id="inspectorCoord">State (0,0)</strong>
+                <div class="q-inspector-grid">
+                    <div class="q-item" id="q-UP"><span>↑ UP</span> <span class="val">0.0</span></div>
+                    <div class="q-item" id="q-RIGHT"><span>→ RIGHT</span> <span class="val">0.0</span></div>
+                    <div class="q-item" id="q-DOWN"><span>↓ DOWN</span> <span class="val">0.0</span></div>
+                    <div class="q-item" id="q-LEFT"><span>← LEFT</span> <span class="val">0.0</span></div>
+                </div>
+            </div>
+            
+            <!-- Simple Visual Legend -->
+            <div class="legend">
+                <div class="legend-item">🤖 Agent</div>
+                <div class="legend-item">🎯 Goal (+10 Reward)</div>
+                <div class="legend-item">⚠️ Trap (-10 Penalty)</div>
+                <div class="legend-item">🧱 Wall</div>
+                <div class="legend-item" style="grid-column: span 2;">💡 <em>Hover any cell to inspect learned Q-values</em></div>
+            </div>
+        </div>
+
+        <!-- Right Column: Controls -->
+        <div class="panel">
+            <h2 style="font-size: 1.05rem; font-weight: 600;">Agent Control Panel</h2>
+            
+            <div id="statusBadge" class="status-badge exploit">
+                EXPLOITING (Following Learned Policy)
+            </div>
+
+            <!-- Exploration Tradeoff Slider -->
+            <div class="control-group">
+                <label>
+                    <span>Exploration Rate (ε-Greedy)</span>
+                    <strong id="epsilonVal">20%</strong>
+                </label>
+                <input type="range" id="epsilonSlider" min="0" max="100" value="20">
+                <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem;">
+                    Higher % = random exploration.<br>Lower % = relies on experience.
+                </p>
+            </div>
+
+            <!-- Speed Control Slider -->
+            <div class="control-group">
+                <label>
+                    <span>Simulation Speed</span>
+                    <strong id="speedVal">10 steps/sec</strong>
+                </label>
+                <input type="range" id="speedSlider" min="1" max="50" value="10">
+            </div>
+
+            <!-- Heatmap Display Toggle -->
+            <div class="control-group">
+                <label class="toggle-label">
+                    <span><input type="checkbox" id="heatmapToggle"> Enable Q-Value Heatmap Overlay</span>
+                </label>
+            </div>
+
+            <hr style="border-color: var(--border-color);">
+
+            <!-- Key Metrics -->
+            <div class="stat-card">
+                <span style="font-size: 0.85rem; color: var(--text-muted);">Current Episode</span>
+                <span id="episodeNum" class="stat-val">1</span>
+            </div>
+            <div class="stat-card">
+                <span style="font-size: 0.85rem; color: var(--text-muted);">Last Step Reward</span>
+                <span id="lastReward" class="stat-val" style="color: var(--text-muted);">0</span>
+            </div>
+
+            <hr style="border-color: var(--border-color);">
+
+            <!-- Action Buttons -->
+            <button class="btn" id="runBtn">Start Training</button>
+            <button class="btn btn-secondary" id="stepBtn">Single Step</button>
+            <button class="btn btn-danger" id="resetBtn">Reset Q-Table</button>
+        </div>
+    </div>
+
+    <script>
+        const GRID_SIZE = 5;
+        const Q_TABLE = {};
+        const ACTIONS = ['UP', 'DOWN', 'LEFT', 'RIGHT'];
+        
+        let agentPos = { r: 4, c: 0 };
+        let episode = 1;
+        let isRunning = false;
+        let timer = null;
+
+        const GOAL = { r: 0, c: 4 };
+        const TRAP = { r: 1, c: 3 };
+        const WALLS = [{ r: 2, c: 1 }, { r: 2, c: 2 }, { r: 3, c: 3 }];
+
+        function getKey(r, c) { return `${r},${c}`; }
+
+        function initQTable() {
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    Q_TABLE[getKey(r, c)] = { UP: 0, DOWN: 0, LEFT: 0, RIGHT: 0 };
+                }
+            }
+        }
+
+        function createGrid() {
+            const gridEl = document.getElementById('gridworld');
+            gridEl.innerHTML = '';
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    const cell = document.createElement('div');
+                    cell.className = 'cell';
+                    cell.id = `cell-${r}-${c}`;
+
+                    if (r === GOAL.r && c === GOAL.c) {
+                        cell.classList.add('goal');
+                        cell.innerText = '🎯';
+                    } else if (r === TRAP.r && c === TRAP.c) {
+                        cell.classList.add('hazard');
+                        cell.innerText = '⚠️';
+                    } else if (WALLS.some(w => w.r === r && w.c === c)) {
+                        cell.classList.add('wall');
+                        cell.innerText = '🧱';
+                    } else {
+                        const arrow = document.createElement('span');
+                        arrow.className = 'arrow';
+                        arrow.id = `arrow-${r}-${c}`;
+                        cell.appendChild(arrow);
+                    }
+
+                    // Hover event for Q-Inspector
+                    if (!WALLS.some(w => w.r === r && w.c === c)) {
+                        cell.addEventListener('mouseenter', (e) => showInspector(r, c, e));
+                        cell.addEventListener('mousemove', moveInspector);
+                        cell.addEventListener('mouseleave', hideInspector);
+                    }
+
+                    gridEl.appendChild(cell);
+                }
+            }
+            renderAgent();
+        }
+
+        function renderAgent() {
+            document.querySelectorAll('.agent').forEach(el => el.remove());
+            const agentCell = document.getElementById(`cell-${agentPos.r}-${agentPos.c}`);
+            const agentEl = document.createElement('div');
+            agentEl.className = 'agent';
+            agentEl.innerText = '🤖';
+            agentCell.appendChild(agentEl);
+        }
+
+        function updateVisuals() {
+            const arrows = { UP: '↑', DOWN: '↓', LEFT: '←', RIGHT: '→' };
+            const showHeatmap = document.getElementById('heatmapToggle').checked;
+
+            for (let r = 0; r < GRID_SIZE; r++) {
+                for (let c = 0; c < GRID_SIZE; c++) {
+                    if ((r === GOAL.r && c === GOAL.c) || (r === TRAP.r && c === TRAP.c) || WALLS.some(w => w.r === r && w.c === c)) continue;
+                    
+                    const q = Q_TABLE[getKey(r, c)];
+                    const bestAction = Object.keys(q).reduce((a, b) => q[a] > q[b] ? a : b);
+                    const maxQ = q[bestAction];
+                    
+                    // Arrow Update
+                    const arrowEl = document.getElementById(`arrow-${r}-${c}`);
+                    if (maxQ !== 0 && arrowEl) {
+                        arrowEl.innerText = arrows[bestAction];
+                    }
+
+                    // Heatmap Overlay Update
+                    const cellEl = document.getElementById(`cell-${r}-${c}`);
+                    if (showHeatmap && maxQ !== 0) {
+                        if (maxQ > 0) {
+                            const intensity = Math.min(1, maxQ / 8);
+                            cellEl.style.backgroundColor = `rgba(16, 185, 129, ${intensity * 0.4})`;
+                        } else {
+                            const intensity = Math.min(1, Math.abs(maxQ) / 8);
+                            cellEl.style.backgroundColor = `rgba(239, 68, 68, ${intensity * 0.4})`;
+                        }
+                    } else {
+                        cellEl.style.backgroundColor = '#1a2234';
+                    }
+                }
+            }
+        }
+
+        function showInspector(r, c, e) {
+            const inspector = document.getElementById('qInspector');
+            document.getElementById('inspectorCoord').innerText = `State (${r}, ${c})`;
+            const q = Q_TABLE[getKey(r, c)];
+            const bestAction = Object.keys(q).reduce((a, b) => q[a] > q[b] ? a : b);
+
+            ACTIONS.forEach(act => {
+                const itemEl = document.getElementById(`q-${act}`);
+                itemEl.querySelector('.val').innerText = q[act].toFixed(2);
+                if (q[act] !== 0 && act === bestAction) {
+                    itemEl.classList.add('best');
+                } else {
+                    itemEl.classList.remove('best');
+                }
+            });
+
+            inspector.style.display = 'block';
+            moveInspector(e);
+        }
+
+        function moveInspector(e) {
+            const inspector = document.getElementById('qInspector');
+            const container = document.querySelector('.grid-container').getBoundingClientRect();
+            inspector.style.left = `${e.clientX - container.left + 15}px`;
+            inspector.style.top = `${e.clientY - container.top + 15}px`;
+        }
+
+        function hideInspector() {
+            document.getElementById('qInspector').style.display = 'none';
+        }
+
+        function step() {
+            const epsilon = parseInt(document.getElementById('epsilonSlider').value) / 100;
+            const key = getKey(agentPos.r, agentPos.c);
+            let action;
+            let isExploring = Math.random() < epsilon;
+
+            const badge = document.getElementById('statusBadge');
+            if (isExploring) {
+                action = ACTIONS[Math.floor(Math.random() * ACTIONS.length)];
+                badge.innerText = "EXPLORING (Random Action)";
+                badge.className = "status-badge explore";
+            } else {
+                const q = Q_TABLE[key];
+                action = Object.keys(q).reduce((a, b) => q[a] > q[b] ? a : b);
+                badge.innerText = "EXPLOITING (Best Known Policy)";
+                badge.className = "status-badge exploit";
+            }
+
+            // Move Logic
+            let nextPos = { ...agentPos };
+            if (action === 'UP') nextPos.r = Math.max(0, agentPos.r - 1);
+            if (action === 'DOWN') nextPos.r = Math.min(GRID_SIZE - 1, agentPos.r + 1);
+            if (action === 'LEFT') nextPos.c = Math.max(0, agentPos.c - 1);
+            if (action === 'RIGHT') nextPos.c = Math.min(GRID_SIZE - 1, agentPos.c + 1);
+
+            // Wall Collision Check
+            if (WALLS.some(w => w.r === nextPos.r && w.c === nextPos.c)) {
+                nextPos = { ...agentPos };
+            }
+
+            // Calculate Reward
+            let reward = -0.1;
+            let isTerminal = false;
+
+            if (nextPos.r === GOAL.r && nextPos.c === GOAL.c) {
+                reward = 10;
+                isTerminal = true;
+            } else if (nextPos.r === TRAP.r && nextPos.c === TRAP.c) {
+                reward = -10;
+                isTerminal = true;
+            }
+
+            // Q-Value Update
+            const nextKey = getKey(nextPos.r, nextPos.c);
+            const maxNextQ = Math.max(...Object.values(Q_TABLE[nextKey]));
+            Q_TABLE[key][action] += 0.2 * (reward + 0.9 * maxNextQ - Q_TABLE[key][action]);
+
+            // Update Agent & UI
+            agentPos = nextPos;
+            renderAgent();
+            updateVisuals();
+
+            const rewardEl = document.getElementById('lastReward');
+            rewardEl.innerText = reward > 0 ? `+${reward}` : reward;
+            rewardEl.style.color = reward > 0 ? 'var(--accent-green)' : (reward < -1 ? 'var(--accent-red)' : 'var(--text-muted)');
+
+            if (isTerminal) {
+                agentPos = { r: 4, c: 0 };
+                episode++;
+                document.getElementById('episodeNum').innerText = episode;
+                renderAgent();
+            }
+        }
+
+        // Speed Adjustment Logic
+        function resetInterval() {
+            if (isRunning) {
+                clearInterval(timer);
+                const stepsPerSec = parseInt(document.getElementById('speedSlider').value);
+                const intervalMs = 1000 / stepsPerSec;
+                timer = setInterval(step, intervalMs);
+            }
+        }
+
+        document.getElementById('speedSlider').addEventListener('input', (e) => {
+            document.getElementById('speedVal').innerText = `${e.target.value} steps/sec`;
+            resetInterval();
+        });
+
+        document.getElementById('epsilonSlider').addEventListener('input', (e) => {
+            document.getElementById('epsilonVal').innerText = `${e.target.value}%`;
+        });
+
+        document.getElementById('heatmapToggle').addEventListener('change', updateVisuals);
+
+        document.getElementById('stepBtn').addEventListener('click', () => {
+            if (isRunning) toggleRun();
+            step();
+        });
+
+        document.getElementById('runBtn').addEventListener('click', toggleRun);
+
+        function toggleRun() {
+            isRunning = !isRunning;
+            const btn = document.getElementById('runBtn');
+            if (isRunning) {
+                btn.innerText = "Pause";
+                resetInterval();
+            } else {
+                btn.innerText = "Start Training";
+                clearInterval(timer);
+            }
+        }
+
+        document.getElementById('resetBtn').addEventListener('click', () => {
+            if (isRunning) toggleRun();
+            initQTable();
+            agentPos = { r: 4, c: 0 };
+            episode = 1;
+            document.getElementById('episodeNum').innerText = episode;
+            document.getElementById('lastReward').innerText = '0';
+            document.querySelectorAll('.arrow').forEach(a => a.innerText = '');
+            updateVisuals();
+            renderAgent();
+        });
+
+        // Initialize App
+        initQTable();
+        createGrid();
+    </script>
+</body>
+</html>
