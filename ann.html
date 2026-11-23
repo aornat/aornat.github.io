@@ -1,0 +1,2503 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Artificial Neural Networks Demo</title>
+  <style>
+    /* ==========================================================================
+       DESIGN TOKENS & ULTRA-MINIMAL DARK THEME
+       ========================================================================== */
+    :root {
+      --bg-primary: #0a0e17;
+      --bg-panel: #0f1624;
+      --bg-elevated: #151e30;
+      --border-subtle: rgba(148, 163, 184, 0.14);
+      --border-strong: rgba(148, 163, 184, 0.28);
+
+      --text-primary: #f1f5f9;
+      --text-secondary: #94a3b8;
+      --text-muted: #64748b;
+
+      --cyan: #38bdf8;       /* Positive weights / activations */
+      --cyan-dim: rgba(56, 189, 248, 0.16);
+      --rose: #f43f5e;       /* Negative weights / activations / Class 0 */
+      --rose-dim: rgba(244, 63, 94, 0.16);
+      --amber: #fbbf24;      /* Bias / Decision boundary / Test point */
+      --amber-dim: rgba(251, 191, 36, 0.18);
+      --emerald: #10b981;    /* Target Class 1 */
+      --emerald-dim: rgba(16, 185, 129, 0.18);
+
+      --font-sans: -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "Fira Code", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    html, body {
+      width: 100%;
+      height: 100vh;
+      overflow: hidden;
+      background-color: var(--bg-primary);
+      color: var(--text-primary);
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1.35;
+    }
+
+    /* ==========================================================================
+       APP SHELL (100VH NO-SCROLL CLASSROOM LAYOUT)
+       ========================================================================== */
+    .app-shell {
+      display: grid;
+      grid-template-rows: 48px 1fr 132px;
+      height: 100vh;
+      width: 100vw;
+      padding: 8px 12px 10px 12px;
+      gap: 8px;
+    }
+
+    /* TOP HEADER BAR */
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 12px;
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .brand-badge {
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      padding: 3px 7px;
+      border-radius: 5px;
+      background: var(--cyan-dim);
+      color: var(--cyan);
+      border: 1px solid rgba(56, 189, 248, 0.35);
+    }
+
+    .brand-title {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: -0.01em;
+      color: var(--text-primary);
+    }
+
+    /* MODE TABS */
+    .mode-tabs {
+      display: flex;
+      gap: 4px;
+      background: var(--bg-primary);
+      padding: 3px;
+      border-radius: 8px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .tab-btn {
+      background: transparent;
+      border: none;
+      color: var(--text-secondary);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      font-weight: 600;
+      padding: 5px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.16s ease;
+    }
+
+    .tab-btn:hover {
+      color: var(--text-primary);
+    }
+
+    .tab-btn.active {
+      background: var(--bg-elevated);
+      color: var(--cyan);
+      box-shadow: 0 0 0 1px rgba(56, 189, 248, 0.3);
+    }
+
+    /* MINIMAL COLOR LEGEND */
+    .legend {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 11px;
+      color: var(--text-secondary);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+
+    .line-swatch {
+      width: 14px;
+      height: 2.5px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    /* ==========================================================================
+       MAIN VISUAL WORKSPACE (SPLIT 2-COLUMN)
+       ========================================================================== */
+    .workspace {
+      display: grid;
+      grid-template-columns: 1.25fr 1fr;
+      gap: 8px;
+      min-height: 0;
+    }
+
+    .panel {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    .panel-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 8px 12px;
+      border-bottom: 1px solid var(--border-subtle);
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-secondary);
+      flex-shrink: 0;
+    }
+
+    .panel-header .readout-pill {
+      font-family: var(--font-mono);
+      text-transform: none;
+      letter-spacing: 0;
+      font-size: 11.5px;
+      color: var(--text-primary);
+      background: var(--bg-primary);
+      padding: 2px 8px;
+      border-radius: 5px;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .canvas-container {
+      flex: 1;
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    canvas, svg {
+      width: 100%;
+      height: 100%;
+      display: block;
+    }
+
+    /* Floating live math overlay inside diagram */
+    .math-hud {
+      position: absolute;
+      bottom: 10px;
+      left: 12px;
+      right: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      pointer-events: none;
+    }
+
+    .math-chip {
+      background: rgba(10, 14, 23, 0.88);
+      backdrop-filter: blur(6px);
+      border: 1px solid var(--border-subtle);
+      border-radius: 6px;
+      padding: 5px 10px;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--text-primary);
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* ==========================================================================
+       BOTTOM CONTROL DECK
+       ========================================================================== */
+    .controls-deck {
+      background: var(--bg-panel);
+      border: 1px solid var(--border-subtle);
+      border-radius: 10px;
+      padding: 10px 14px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      height: 100%;
+      justify-content: center;
+    }
+
+    .control-group-title {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--text-muted);
+    }
+
+    .sliders-grid {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(110px, 1fr));
+      gap: 12px;
+      flex: 1;
+    }
+
+    .slider-card {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 7px 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 5px;
+    }
+
+    .slider-top {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+    }
+
+    .slider-label {
+      font-weight: 600;
+      color: var(--text-secondary);
+    }
+
+    .slider-val {
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 4px;
+      background: var(--bg-elevated);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--cyan);
+      cursor: pointer;
+      border: 2px solid var(--bg-primary);
+      box-shadow: 0 0 0 1px var(--cyan);
+      transition: transform 0.1s ease;
+    }
+
+    input[type="range"]::-webkit-slider-thumb:hover {
+      transform: scale(1.15);
+    }
+
+    .slider-card.amber input[type="range"]::-webkit-slider-thumb {
+      background: var(--amber);
+      box-shadow: 0 0 0 1px var(--amber);
+    }
+
+    .btn-row {
+      display: flex;
+      gap: 5px;
+      flex-wrap: wrap;
+    }
+
+    .pill-btn {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      padding: 6px 10px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.14s ease;
+      white-space: nowrap;
+    }
+
+    .pill-btn:hover {
+      border-color: var(--border-strong);
+      color: var(--text-primary);
+    }
+
+    .pill-btn.active {
+      background: var(--cyan-dim);
+      border-color: var(--cyan);
+      color: var(--cyan);
+    }
+
+    .pill-btn.amber.active {
+      background: var(--amber-dim);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    .pill-btn.primary {
+      background: var(--emerald-dim);
+      border-color: var(--emerald);
+      color: var(--emerald);
+    }
+
+    .pill-btn.primary.running {
+      background: var(--amber-dim);
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+
+    .divider-v {
+      width: 1px;
+      height: 76px;
+      background: var(--border-subtle);
+      flex-shrink: 0;
+    }
+
+    /* Metric boxes for MLP */
+    .metrics-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .metric-box {
+      background: var(--bg-primary);
+      border: 1px solid var(--border-subtle);
+      border-radius: 8px;
+      padding: 6px 12px;
+      min-width: 86px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .metric-name {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--text-muted);
+    }
+
+    .metric-value {
+      font-family: var(--font-mono);
+      font-size: 15px;
+      font-weight: 700;
+      color: var(--text-primary);
+      margin-top: 2px;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    /* Interactive cursor hint on plot */
+    #perceptronPlot {
+      cursor: grab;
+    }
+    #perceptronPlot:active {
+      cursor: grabbing;
+    }
+
+    @media (max-width: 1024px) {
+      .legend { display: none; }
+      .sliders-grid { grid-template-columns: repeat(3, 1fr); }
+      .app-shell { grid-template-rows: 46px 1fr 165px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell">
+    <!-- ====================================================================
+         HEADER: TITLE, MODE TABS & HIGH-CONTRAST COLOR LEGEND
+         ==================================================================== -->
+    <header>
+      <div class="brand">
+        <span class="brand-title">Artificial Neural Networks Demo | IB Computer Science with Mr Ornat</span>
+      </div>
+
+      <nav class="mode-tabs" role="tablist">
+        <button class="tab-btn active" id="tabPerceptron" data-mode="perceptron">
+          1. Single Perceptron
+        </button>
+        <button class="tab-btn" id="tabMLP" data-mode="mlp">
+          2. Multi-Layer Perceptron (MLP)
+        </button>
+        <button class="tab-btn" id="tabPractical" data-mode="practical">
+          3. Real-World Classifier
+        </button>
+      </nav>
+
+      <div class="legend">
+        <div class="legend-item">
+          <span class="line-swatch" style="background: var(--cyan);"></span>
+          <span>+ Weight / Act</span>
+        </div>
+        <div class="legend-item">
+          <span class="line-swatch" style="background: var(--rose);"></span>
+          <span>&minus; Weight / Act</span>
+        </div>
+        <div class="legend-item">
+          <span class="line-swatch" style="background: var(--amber);"></span>
+          <span>Bias / Boundary</span>
+        </div>
+        <div class="legend-item">
+          <span class="dot" style="background: var(--emerald);"></span>
+          <span>Class 1</span>
+        </div>
+        <div class="legend-item">
+          <span class="dot" style="background: var(--rose);"></span>
+          <span>Class 0</span>
+        </div>
+      </div>
+    </header>
+
+    <!-- ====================================================================
+         MODE 1: SINGLE PERCEPTRON (ANATOMY & LINEAR DECISION BOUNDARY)
+         ==================================================================== -->
+    <main class="workspace" id="workspacePerceptron">
+      <!-- Left Panel: Interactive Perceptron Architecture Diagram -->
+      <section class="panel">
+        <div class="panel-header">
+          <span>Perceptron Anatomy &amp; Forward Pass</span>
+          <span class="readout-pill" id="pEquationPill">z = w₁x₁ + w₂x₂ + b</span>
+        </div>
+        <div class="canvas-container">
+          <canvas id="perceptronDiagram"></canvas>
+          <div class="math-hud">
+            <div class="math-chip" id="pSumChip">
+              <span style="color: var(--text-secondary);">Σ z =</span>
+              <span id="pSumDetail" style="color: var(--cyan);">0.00</span>
+            </div>
+            <div class="math-chip" id="pOutChip">
+              <span style="color: var(--text-secondary);">ŷ = f(z) =</span>
+              <span id="pOutDetail" style="color: var(--emerald); font-weight: 700;">1.00</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: 2D Feature Space & Linear Decision Boundary -->
+      <section class="panel">
+        <div class="panel-header">
+          <span>2D Feature Space (Drag Test Point x₁, x₂)</span>
+          <span class="readout-pill" id="pGateStatus">AND Gate • Linearly Separable</span>
+        </div>
+        <div class="canvas-container">
+          <canvas id="perceptronPlot"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <!-- ====================================================================
+         MODE 2: MULTI-LAYER PERCEPTRON (MLP & NON-LINEAR BOUNDARIES)
+         ==================================================================== -->
+    <main class="workspace hidden" id="workspaceMLP">
+      <!-- Left Panel: Interactive MLP Topology -->
+      <section class="panel">
+        <div class="panel-header">
+          <span>MLP Architecture (Hover/Click Node to Inspect)</span>
+          <span class="readout-pill" id="mlpArchPill">2 &rarr; 3 &rarr; 1 (tanh / sigmoid)</span>
+        </div>
+        <div class="canvas-container">
+          <canvas id="mlpDiagram"></canvas>
+          <div class="math-hud">
+            <div class="math-chip" id="mlpInspectChip">
+              <span style="color: var(--text-secondary);">Selected Node:</span>
+              <span id="mlpNodeInfo" style="color: var(--cyan);">None (hover any neuron)</span>
+            </div>
+            <div class="math-chip">
+              <span style="color: var(--text-secondary);">Test Point:</span>
+              <span id="mlpTestInfo" style="color: var(--amber);">(0.00, 0.00) &rarr; ŷ = 0.50</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Non-Linear Decision Surface Heatmap -->
+      <section class="panel">
+        <div class="panel-header">
+          <span>Non-Linear Decision Surface (Click/Drag to Probe)</span>
+          <span class="readout-pill" id="mlpDatasetPill">XOR Pattern • Non-Linear</span>
+        </div>
+        <div class="canvas-container">
+          <canvas id="mlpPlot"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <!-- ====================================================================
+         MODE 3: REAL-WORLD CLASSIFIER (EXAM PASS / FAIL PREDICTOR)
+         ==================================================================== -->
+    <main class="workspace hidden" id="workspacePractical">
+      <!-- Left Panel: Live Student Profile & 2-4-1 Network Flow -->
+      <section class="panel">
+        <div class="panel-header">
+          <span>Exam Outcome Predictor (2 &rarr; 4 &rarr; 1 Network)</span>
+          <span class="readout-pill" id="pracModelPill">MLP (Non-Linear) • 96% Cohort Acc</span>
+        </div>
+        <div class="canvas-container">
+          <canvas id="practicalDiagram"></canvas>
+          <div class="math-hud">
+            <div class="math-chip">
+              <span style="color: var(--text-secondary);">Profile:</span>
+              <span id="pracInputChip" style="color: var(--cyan);">14.0h study • 7.5h sleep</span>
+            </div>
+            <div class="math-chip">
+              <span style="color: var(--text-secondary);">Prediction:</span>
+              <span id="pracPredChip" style="color: var(--emerald); font-weight: 700;">PASS (92%)</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Right Panel: Student Cohort 2D Feature Space -->
+      <section class="panel">
+        <div class="panel-header">
+          <span>Student Cohort Space (Drag Test Student Marker)</span>
+          <span class="readout-pill" id="pracZoneHint">High Study + Low Sleep = Burnout Zone</span>
+        </div>
+        <div class="canvas-container">
+          <canvas id="practicalPlot"></canvas>
+        </div>
+      </section>
+    </main>
+
+    <!-- ====================================================================
+         BOTTOM CONTROLS: MODE 1 (SINGLE PERCEPTRON)
+         ==================================================================== -->
+    <footer class="controls-deck" id="controlsPerceptron">
+      <div class="sliders-grid">
+        <div class="slider-card">
+          <div class="slider-top">
+            <span class="slider-label">Input x₁</span>
+            <span class="slider-val" id="valX1">0.80</span>
+          </div>
+          <input type="range" id="sliderX1" min="-2" max="2" step="0.05" value="0.8" />
+        </div>
+
+        <div class="slider-card">
+          <div class="slider-top">
+            <span class="slider-label">Input x₂</span>
+            <span class="slider-val" id="valX2">0.80</span>
+          </div>
+          <input type="range" id="sliderX2" min="-2" max="2" step="0.05" value="0.8" />
+        </div>
+
+        <div class="slider-card">
+          <div class="slider-top">
+            <span class="slider-label">Weight w₁</span>
+            <span class="slider-val" id="valW1">1.20</span>
+          </div>
+          <input type="range" id="sliderW1" min="-3" max="3" step="0.05" value="1.2" />
+        </div>
+
+        <div class="slider-card">
+          <div class="slider-top">
+            <span class="slider-label">Weight w₂</span>
+            <span class="slider-val" id="valW2">1.20</span>
+          </div>
+          <input type="range" id="sliderW2" min="-3" max="3" step="0.05" value="1.2" />
+        </div>
+
+        <div class="slider-card amber">
+          <div class="slider-top">
+            <span class="slider-label" style="color: var(--amber);">Bias b</span>
+            <span class="slider-val" id="valB" style="color: var(--amber);">-1.00</span>
+          </div>
+          <input type="range" id="sliderB" min="-3" max="3" step="0.05" value="-1.0" />
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="control-group">
+        <span class="control-group-title">Activation f(z)</span>
+        <div class="btn-row" id="actBtnGroup">
+          <button class="pill-btn active" data-act="step">Step</button>
+          <button class="pill-btn" data-act="sigmoid">Sigmoid</button>
+          <button class="pill-btn" data-act="relu">ReLU</button>
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="control-group">
+        <span class="control-group-title">Logic Gate Preset</span>
+        <div class="btn-row" id="gateBtnGroup">
+          <button class="pill-btn amber active" data-gate="AND">AND</button>
+          <button class="pill-btn amber" data-gate="OR">OR</button>
+          <button class="pill-btn amber" data-gate="XOR">XOR</button>
+        </div>
+      </div>
+    </footer>
+
+    <!-- ====================================================================
+         BOTTOM CONTROLS: MODE 2 (MULTI-LAYER PERCEPTRON)
+         ==================================================================== -->
+    <footer class="controls-deck hidden" id="controlsMLP">
+      <div class="control-group">
+        <span class="control-group-title">Dataset Pattern</span>
+        <div class="btn-row" id="mlpDatasetGroup">
+          <button class="pill-btn amber active" data-ds="XOR">XOR</button>
+          <button class="pill-btn amber" data-ds="CIRCLE">Circle</button>
+          <button class="pill-btn amber" data-ds="MOONS">Two Moons</button>
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="control-group">
+        <span class="control-group-title">Hidden Topology</span>
+        <div class="btn-row" id="mlpArchGroup">
+          <button class="pill-btn" data-arch="2,2,1">2-2-1</button>
+          <button class="pill-btn active" data-arch="2,3,1">2-3-1</button>
+          <button class="pill-btn" data-arch="2,4,1">2-4-1</button>
+          <button class="pill-btn" data-arch="2,4,3,1">2-4-3-1</button>
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="slider-card" style="min-width: 125px;">
+        <div class="slider-top">
+          <span class="slider-label">Learn Rate η</span>
+          <span class="slider-val" id="valLR">0.15</span>
+        </div>
+        <input type="range" id="sliderLR" min="0.02" max="0.60" step="0.01" value="0.15" />
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="control-group">
+        <span class="control-group-title">Gradient Descent</span>
+        <div class="btn-row">
+          <button class="pill-btn primary" id="btnTrainToggle">&#9654; Train</button>
+          <button class="pill-btn" id="btnStepEpoch">+1 Epoch</button>
+          <button class="pill-btn" id="btnResetNet">Reset</button>
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="metrics-row">
+        <div class="metric-box">
+          <span class="metric-name">Epoch</span>
+          <span class="metric-value" id="metricEpoch">0</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-name">Loss (MSE)</span>
+          <span class="metric-value" id="metricLoss" style="color: var(--rose);">0.250</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-name">Accuracy</span>
+          <span class="metric-value" id="metricAcc" style="color: var(--emerald);">50%</span>
+        </div>
+      </div>
+    </footer>
+
+    <!-- ====================================================================
+         BOTTOM CONTROLS: MODE 3 (REAL-WORLD STUDENT CLASSIFIER)
+         ==================================================================== -->
+    <footer class="controls-deck hidden" id="controlsPractical">
+      <div style="display: grid; grid-template-columns: repeat(2, minmax(135px, 1fr)); gap: 10px;">
+        <div class="slider-card">
+          <div class="slider-top">
+            <span class="slider-label">Study (x₁)</span>
+            <span class="slider-val" id="valStudy">14.0 hrs/wk</span>
+          </div>
+          <input type="range" id="sliderStudy" min="0" max="20" step="0.5" value="14.0" />
+        </div>
+
+        <div class="slider-card">
+          <div class="slider-top">
+            <span class="slider-label">Sleep (x₂)</span>
+            <span class="slider-val" id="valSleep">7.5 hrs/nt</span>
+          </div>
+          <input type="range" id="sliderSleep" min="3" max="10" step="0.25" value="7.5" />
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="control-group">
+        <span class="control-group-title">Student Presets</span>
+        <div class="btn-row" id="pracPersonaGroup">
+          <button class="pill-btn amber active" data-study="14" data-sleep="7.5">Balanced Prep</button>
+          <button class="pill-btn amber" data-study="19" data-sleep="3.5">All-Nighter Burnout</button>
+          <button class="pill-btn amber" data-study="4" data-sleep="8.5">Well-Rested Minimal</button>
+          <button class="pill-btn amber" data-study="10" data-sleep="7.0">Steady Climber</button>
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="control-group">
+        <span class="control-group-title">Model Comparison</span>
+        <div class="btn-row" id="pracModelGroup">
+          <button class="pill-btn" data-pmodel="linear">Single Perceptron</button>
+          <button class="pill-btn active" data-pmodel="mlp">MLP (Hidden Layer)</button>
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="control-group">
+        <span class="control-group-title">Training</span>
+        <div class="btn-row">
+          <button class="pill-btn primary" id="btnPracTrain">&#9654; Train</button>
+          <button class="pill-btn" id="btnPracReset">Reset</button>
+        </div>
+      </div>
+
+      <div class="divider-v"></div>
+
+      <div class="metrics-row">
+        <div class="metric-box">
+          <span class="metric-name">Cohort Acc</span>
+          <span class="metric-value" id="pracMetricAcc" style="color: var(--emerald);">96%</span>
+        </div>
+        <div class="metric-box">
+          <span class="metric-name">Pass Prob</span>
+          <span class="metric-value" id="pracMetricProb" style="color: var(--cyan);">92%</span>
+        </div>
+      </div>
+    </footer>
+  </div>
+
+  <script>
+    // ============================================================================
+    // APPLICATION STATE & THEME CONSTANTS
+    // ============================================================================
+    const COLORS = {
+      bgPrimary: '#0a0e17',
+      bgPanel: '#0f1624',
+      bgElevated: '#151e30',
+      gridLine: 'rgba(148, 163, 184, 0.12)',
+      axisLine: 'rgba(148, 163, 184, 0.35)',
+      textPrimary: '#f1f5f9',
+      textSecondary: '#94a3b8',
+      textMuted: '#64748b',
+      cyan: '#38bdf8',
+      rose: '#f43f5e',
+      amber: '#fbbf24',
+      emerald: '#10b981'
+    };
+
+    const appState = {
+      mode: 'perceptron', // 'perceptron' | 'mlp' | 'practical'
+
+      // Mode 1: Single Perceptron
+      perceptron: {
+        x1: 0.8,
+        x2: 0.8,
+        w1: 1.2,
+        w2: 1.2,
+        b: -1.0,
+        activation: 'step', // 'step' | 'sigmoid' | 'relu'
+        gate: 'AND'         // 'AND' | 'OR' | 'XOR'
+      },
+
+      // Mode 2: Multi-Layer Perceptron
+      mlp: {
+        dataset: 'XOR',     // 'XOR' | 'CIRCLE' | 'MOONS'
+        arch: [2, 3, 1],
+        lr: 0.15,
+        isTraining: false,
+        epoch: 0,
+        loss: 0.25,
+        accuracy: 50,
+        data: [],           // { x1, x2, y }
+        weights: [],        // weights[layer][to][from]
+        biases: [],         // biases[layer][to]
+        activations: [],    // activations[layer][node]
+        probe: { x1: 0.0, x2: 0.0 },
+        hoveredNode: null,  // { layer, index }
+        selectedNode: null,
+        nodeCoords: []      // cached screen coords for hover/click
+      },
+
+      // Mode 3: Real-World Student Exam Pass/Fail Classifier
+      practical: {
+        study: 14.0,        // x1: 0 to 20 hrs/week
+        sleep: 7.5,         // x2: 3 to 10 hrs/night
+        modelType: 'mlp',   // 'linear' | 'mlp'
+        isTraining: false,
+        cohort: [],         // { study, sleep, y }
+        linW: [1.35, 0.95],
+        linB: -0.15,
+        weights: [],
+        biases: [],
+        activations: [[0, 0], [0, 0, 0, 0], [0]],
+        epoch: 0,
+        accuracy: 96
+      }
+    };
+
+    // ============================================================================
+    // UTILITY FUNCTIONS & HIGH-DPI CANVAS SETUP
+    // ============================================================================
+    function clamp(val, min, max) {
+      return Math.max(min, Math.min(max, val));
+    }
+
+    function formatSigned(val, decimals = 2) {
+      const s = val >= 0 ? '+' : '';
+      return s + val.toFixed(decimals);
+    }
+
+    function setupCanvas(canvas) {
+      const dpr = window.devicePixelRatio || 1;
+      const rect = canvas.parentElement.getBoundingClientRect();
+      const width = Math.max(100, rect.width);
+      const height = Math.max(100, rect.height);
+      if (canvas.width !== Math.round(width * dpr) || canvas.height !== Math.round(height * dpr)) {
+        canvas.width = Math.round(width * dpr);
+        canvas.height = Math.round(height * dpr);
+      }
+      const ctx = canvas.getContext('2d');
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      return { ctx, width, height };
+    }
+
+    function drawCircleNode(ctx, x, y, r, fill, stroke, lineWidth = 2) {
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(x, y, r, 0, Math.PI * 2);
+      ctx.fillStyle = fill;
+      ctx.fill();
+      ctx.lineWidth = lineWidth;
+      ctx.strokeStyle = stroke;
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    function roundRect(ctx, x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    // ============================================================================
+    // MODE 1: SINGLE PERCEPTRON (ANATOMY & LINEAR BOUNDARY)
+    // ============================================================================
+    function activatePerceptron(z, type) {
+      if (type === 'step') return z >= 0 ? 1 : 0;
+      if (type === 'sigmoid') return 1 / (1 + Math.exp(-clamp(z, -20, 20)));
+      return Math.max(0, z); // ReLU
+    }
+
+    function getGateTruthTable(gate) {
+      if (gate === 'AND') {
+        return [
+          { x1: 0, x2: 0, y: 0 },
+          { x1: 0, x2: 1, y: 0 },
+          { x1: 1, x2: 0, y: 0 },
+          { x1: 1, x2: 1, y: 1 }
+        ];
+      }
+      if (gate === 'OR') {
+        return [
+          { x1: 0, x2: 0, y: 0 },
+          { x1: 0, x2: 1, y: 1 },
+          { x1: 1, x2: 0, y: 1 },
+          { x1: 1, x2: 1, y: 1 }
+        ];
+      }
+      // XOR
+      return [
+        { x1: 0, x2: 0, y: 0 },
+        { x1: 0, x2: 1, y: 1 },
+        { x1: 1, x2: 0, y: 1 },
+        { x1: 1, x2: 1, y: 0 }
+      ];
+    }
+
+    function renderPerceptronMode() {
+      const p = appState.perceptron;
+      const z = p.w1 * p.x1 + p.w2 * p.x2 + p.b;
+      const yHat = activatePerceptron(z, p.activation);
+
+      // Update Header Pills & HUD
+      document.getElementById('pEquationPill').textContent =
+        `z = (${p.w1.toFixed(1)})(${p.x1.toFixed(1)}) + (${p.w2.toFixed(1)})(${p.x2.toFixed(1)}) ${formatSigned(p.b, 1)}`;
+
+      const sumEl = document.getElementById('pSumDetail');
+      sumEl.textContent = formatSigned(z, 2);
+      sumEl.style.color = z >= 0 ? COLORS.cyan : COLORS.rose;
+
+      const outEl = document.getElementById('pOutDetail');
+      outEl.textContent = yHat.toFixed(2);
+      outEl.style.color = yHat >= 0.5 ? COLORS.emerald : COLORS.rose;
+
+      // Evaluate Gate Separability Status
+      const table = getGateTruthTable(p.gate);
+      let correct = 0;
+      table.forEach(pt => {
+        const pz = p.w1 * pt.x1 + p.w2 * pt.x2 + p.b;
+        const pred = activatePerceptron(pz, p.activation) >= 0.5 ? 1 : 0;
+        if (pred === pt.y) correct++;
+      });
+
+      const statusEl = document.getElementById('pGateStatus');
+      if (p.gate === 'XOR') {
+        statusEl.textContent = `XOR Gate • Non-Linear (${correct}/4 max)`;
+        statusEl.style.color = COLORS.amber;
+      } else {
+        statusEl.textContent = `${p.gate} Gate • ${correct}/4 Matched`;
+        statusEl.style.color = correct === 4 ? COLORS.emerald : COLORS.textPrimary;
+      }
+
+      drawPerceptronDiagram(z, yHat);
+      drawPerceptronPlot();
+    }
+
+    function drawPerceptronDiagram(z, yHat) {
+      const canvas = document.getElementById('perceptronDiagram');
+      const { ctx, width: w, height: h } = setupCanvas(canvas);
+      const p = appState.perceptron;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const xIn = w * 0.17;
+      const xSum = w * 0.48;
+      const xAct = w * 0.71;
+      const xOut = w * 0.90;
+
+      const y1 = h * 0.25;
+      const y2 = h * 0.52;
+      const yBias = h * 0.79;
+      const yMid = h * 0.50;
+
+      // Draw Weighted Connections (Inputs & Bias -> Summation)
+      const links = [
+        { x: xIn, y: y1, weight: p.w1, label: `w₁ = ${formatSigned(p.w1, 2)}`, color: p.w1 >= 0 ? COLORS.cyan : COLORS.rose, dy: -13 },
+        { x: xIn, y: y2, weight: p.w2, label: `w₂ = ${formatSigned(p.w2, 2)}`, color: p.w2 >= 0 ? COLORS.cyan : COLORS.rose, dy: -11 },
+        { x: xIn, y: yBias, weight: p.b, label: `b = ${formatSigned(p.b, 2)}`, color: COLORS.amber, dy: 16 }
+      ];
+
+      links.forEach(link => {
+        ctx.save();
+        ctx.strokeStyle = link.color;
+        ctx.lineWidth = clamp(1.5 + Math.abs(link.weight) * 2.2, 1.5, 8);
+        ctx.beginPath();
+        ctx.moveTo(link.x + 24, link.y);
+        ctx.lineTo(xSum - 30, yMid);
+        ctx.stroke();
+
+        // Weight Label Pill
+        const mx = (link.x + xSum) * 0.48;
+        const my = (link.y + yMid) * 0.5 + link.dy;
+        ctx.fillStyle = link.color;
+        ctx.font = '700 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(link.label, mx, my);
+        ctx.restore();
+      });
+
+      // Summation -> Activation Link
+      ctx.strokeStyle = z >= 0 ? COLORS.cyan : COLORS.rose;
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(xSum + 30, yMid);
+      ctx.lineTo(xAct - 26, yMid);
+      ctx.stroke();
+
+      // Activation -> Output Link
+      ctx.strokeStyle = yHat >= 0.5 ? COLORS.emerald : COLORS.rose;
+      ctx.lineWidth = 3.5;
+      ctx.beginPath();
+      ctx.moveTo(xAct + 26, yMid);
+      ctx.lineTo(xOut - 24, yMid);
+      ctx.stroke();
+
+      // Input Nodes
+      const inputs = [
+        { y: y1, title: 'Input x₁', val: p.x1.toFixed(2), stroke: COLORS.cyan },
+        { y: y2, title: 'Input x₂', val: p.x2.toFixed(2), stroke: COLORS.cyan },
+        { y: yBias, title: 'Bias Node', val: '+1.0', stroke: COLORS.amber }
+      ];
+
+      inputs.forEach(inp => {
+        drawCircleNode(ctx, xIn, inp.y, 24, COLORS.bgElevated, inp.stroke, 2.5);
+        ctx.fillStyle = COLORS.textPrimary;
+        ctx.font = '700 11.5px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(inp.val, xIn, inp.y);
+
+        ctx.fillStyle = COLORS.textSecondary;
+        ctx.font = '600 10.5px sans-serif';
+        ctx.fillText(inp.title, xIn, inp.y - 33);
+      });
+
+      // Summation Node (Σ)
+      const sumCol = z >= 0 ? COLORS.cyan : COLORS.rose;
+      drawCircleNode(ctx, xSum, yMid, 30, COLORS.bgElevated, sumCol, 3);
+      ctx.fillStyle = COLORS.textPrimary;
+      ctx.font = '700 14px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Σ z', xSum, yMid - 7);
+      ctx.fillStyle = sumCol;
+      ctx.font = '700 11px monospace';
+      ctx.fillText(formatSigned(z, 2), xSum, yMid + 10);
+
+      ctx.fillStyle = COLORS.textSecondary;
+      ctx.font = '600 10.5px sans-serif';
+      ctx.fillText('Weighted Sum', xSum, yMid - 42);
+
+      // Activation Function Node f(z) with mini curve preview
+      drawCircleNode(ctx, xAct, yMid, 26, COLORS.bgElevated, COLORS.cyan, 2.5);
+      ctx.save();
+      ctx.strokeStyle = COLORS.amber;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      for (let i = -14; i <= 14; i += 2) {
+        const nx = i / 5;
+        let ny = 0;
+        if (p.activation === 'step') ny = nx >= 0 ? 1 : -1;
+        else if (p.activation === 'sigmoid') ny = (2 / (1 + Math.exp(-nx * 1.5))) - 1;
+        else ny = nx > 0 ? Math.min(1, nx * 0.5) : -0.4;
+        const px = xAct + i;
+        const py = yMid - ny * 10;
+        if (i === -14) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      ctx.fillStyle = COLORS.textSecondary;
+      ctx.font = '600 10.5px sans-serif';
+      ctx.fillText(`f(z): ${p.activation.toUpperCase()}`, xAct, yMid - 38);
+
+      // Output Node (ŷ)
+      const outCol = yHat >= 0.5 ? COLORS.emerald : COLORS.rose;
+      const outFill = yHat >= 0.5 ? 'rgba(16,185,129,0.22)' : 'rgba(244,63,94,0.22)';
+      drawCircleNode(ctx, xOut, yMid, 24, outFill, outCol, 3);
+      ctx.fillStyle = COLORS.textPrimary;
+      ctx.font = '700 12px monospace';
+      ctx.fillText(yHat.toFixed(2), xOut, yMid);
+
+      ctx.fillStyle = COLORS.textSecondary;
+      ctx.font = '600 10.5px sans-serif';
+      ctx.fillText('Output ŷ', xOut, yMid - 35);
+    }
+
+    let pPlotTransform = null;
+
+    function drawPerceptronPlot() {
+      const canvas = document.getElementById('perceptronPlot');
+      const { ctx, width: w, height: h } = setupCanvas(canvas);
+      const p = appState.perceptron;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 42, padR = 20, padT = 20, padB = 34;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+      const minV = -1.5, maxV = 2.0, span = maxV - minV;
+
+      const toScreenX = (x) => padL + ((x - minV) / span) * plotW;
+      const toScreenY = (y) => padT + ((maxV - y) / span) * plotH;
+      const toDataX = (sx) => clamp(minV + ((sx - padL) / plotW) * span, -2, 2);
+      const toDataY = (sy) => clamp(maxV - ((sy - padT) / plotH) * span, -2, 2);
+
+      pPlotTransform = { toScreenX, toScreenY, toDataX, toDataY };
+
+      // 1. Decision Region Heatmap
+      const cols = 44, rows = 36;
+      const cw = plotW / cols, ch = plotH / rows;
+      for (let gx = 0; gx < cols; gx++) {
+        for (let gy = 0; gy < rows; gy++) {
+          const sx = padL + gx * cw;
+          const sy = padT + gy * ch;
+          const dx = toDataX(sx + cw * 0.5);
+          const dy = toDataY(sy + ch * 0.5);
+          const z = p.w1 * dx + p.w2 * dy + p.b;
+          const out = activatePerceptron(z, p.activation);
+
+          if (out >= 0.5) {
+            ctx.fillStyle = 'rgba(16, 185, 129, 0.16)';
+          } else {
+            ctx.fillStyle = 'rgba(244, 63, 94, 0.14)';
+          }
+          ctx.fillRect(sx, sy, cw + 0.5, ch + 0.5);
+        }
+      }
+
+      // 2. Gridlines & Axes
+      ctx.strokeStyle = COLORS.gridLine;
+      ctx.lineWidth = 1;
+      for (let v = -1; v <= 2; v += 0.5) {
+        const px = toScreenX(v);
+        const py = toScreenY(v);
+        ctx.beginPath();
+        ctx.moveTo(px, padT);
+        ctx.lineTo(px, padT + plotH);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(padL, py);
+        ctx.lineTo(padL + plotW, py);
+        ctx.stroke();
+
+        if (Number.isInteger(v)) {
+          ctx.fillStyle = COLORS.textSecondary;
+          ctx.font = '600 10.5px monospace';
+          ctx.textAlign = 'center';
+          ctx.fillText(v.toString(), px, padT + plotH + 14);
+          ctx.textAlign = 'right';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(v.toString(), padL - 7, py);
+        }
+      }
+
+      // Origin axes
+      ctx.strokeStyle = COLORS.axisLine;
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(toScreenX(0), padT);
+      ctx.lineTo(toScreenX(0), padT + plotH);
+      ctx.moveTo(padL, toScreenY(0));
+      ctx.lineTo(padL + plotW, toScreenY(0));
+      ctx.stroke();
+
+      // 3. Linear Decision Boundary Line: w1*x1 + w2*x2 + b = 0
+      if (Math.abs(p.w1) > 0.001 || Math.abs(p.w2) > 0.001) {
+        ctx.save();
+        ctx.beginPath();
+        ctx.rect(padL, padT, plotW, plotH);
+        ctx.clip();
+
+        ctx.strokeStyle = COLORS.amber;
+        ctx.lineWidth = 2.5;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+
+        if (Math.abs(p.w2) > Math.abs(p.w1)) {
+          const yStart = -(p.w1 * minV + p.b) / p.w2;
+          const yEnd = -(p.w1 * maxV + p.b) / p.w2;
+          ctx.moveTo(toScreenX(minV), toScreenY(yStart));
+          ctx.lineTo(toScreenX(maxV), toScreenY(yEnd));
+        } else {
+          const xStart = -(p.w2 * minV + p.b) / p.w1;
+          const xEnd = -(p.w2 * maxV + p.b) / p.w1;
+          ctx.moveTo(toScreenX(xStart), toScreenY(minV));
+          ctx.lineTo(toScreenX(xEnd), toScreenY(maxV));
+        }
+        ctx.stroke();
+        ctx.restore();
+      }
+
+      // 4. Logic Gate Truth Table Points
+      const gatePoints = getGateTruthTable(p.gate);
+      gatePoints.forEach(pt => {
+        const px = toScreenX(pt.x1);
+        const py = toScreenY(pt.x2);
+        drawCircleNode(
+          ctx, px, py, 7,
+          pt.y === 1 ? COLORS.emerald : COLORS.rose,
+          COLORS.bgPrimary, 2
+        );
+      });
+
+      // 5. Draggable Live Test Point (x1, x2)
+      const tx = toScreenX(p.x1);
+      const ty = toScreenY(p.x2);
+
+      ctx.beginPath();
+      ctx.arc(tx, ty, 14, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.24)';
+      ctx.fill();
+
+      drawCircleNode(ctx, tx, ty, 6.5, COLORS.amber, COLORS.bgPrimary, 2);
+
+      // Axis Labels
+      ctx.fillStyle = COLORS.textPrimary;
+      ctx.font = '600 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Input x₁', padL + plotW * 0.5, h - 6);
+
+      ctx.save();
+      ctx.translate(12, padT + plotH * 0.5);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Input x₂', 0, 0);
+      ctx.restore();
+    }
+
+    // ============================================================================
+    // MODE 2: MULTI-LAYER PERCEPTRON (MLP & NON-LINEAR BOUNDARIES)
+    // ============================================================================
+    function generateMLPDataset(type) {
+      const pts = [];
+      if (type === 'XOR') {
+        const centers = [
+          [-0.6, -0.6, 0], [0.6, 0.6, 0],
+          [-0.6, 0.6, 1],  [0.6, -0.6, 1]
+        ];
+        centers.forEach(([cx, cy, y], idx) => {
+          for (let i = 0; i < 14; i++) {
+            const angle = (i / 14) * Math.PI * 2 + idx;
+            const r = 0.08 + (i % 4) * 0.065;
+            pts.push({
+              x1: clamp(cx + Math.cos(angle) * r, -1, 1),
+              x2: clamp(cy + Math.sin(angle) * r, -1, 1),
+              y
+            });
+          }
+        });
+      } else if (type === 'CIRCLE') {
+        for (let i = 0; i < 28; i++) {
+          const a = (i / 28) * Math.PI * 2;
+          const r = 0.22 + (i % 3) * 0.08;
+          pts.push({ x1: Math.cos(a) * r, x2: Math.sin(a) * r, y: 1 });
+        }
+        for (let i = 0; i < 32; i++) {
+          const a = (i / 32) * Math.PI * 2;
+          const r = 0.72 + (i % 3) * 0.07;
+          pts.push({ x1: Math.cos(a) * r, x2: Math.sin(a) * r, y: 0 });
+        }
+      } else {
+        // TWO MOONS
+        for (let i = 0; i < 30; i++) {
+          const t = (i / 29) * Math.PI;
+          const jitter = ((i % 3) - 1) * 0.05;
+          pts.push({
+            x1: -0.25 + Math.cos(t) * 0.62,
+            x2: -0.15 + Math.sin(t) * 0.65 + jitter,
+            y: 1
+          });
+        }
+        for (let i = 0; i < 30; i++) {
+          const t = (i / 29) * Math.PI;
+          const jitter = ((i % 3) - 1) * 0.05;
+          pts.push({
+            x1: 0.25 - Math.cos(t) * 0.62,
+            x2: 0.15 - Math.sin(t) * 0.65 + jitter,
+            y: 0
+          });
+        }
+      }
+      return pts;
+    }
+
+    function initMLPNetwork() {
+      const m = appState.mlp;
+      m.data = generateMLPDataset(m.dataset);
+      m.epoch = 0;
+      m.weights = [];
+      m.biases = [];
+      m.activations = m.arch.map(n => new Array(n).fill(0));
+      m.hoveredNode = null;
+      m.selectedNode = null;
+
+      for (let l = 1; l < m.arch.length; l++) {
+        const fanIn = m.arch[l - 1];
+        const fanOut = m.arch[l];
+        const scale = Math.sqrt(2.0 / fanIn);
+        const lw = [];
+        const lb = [];
+        for (let j = 0; j < fanOut; j++) {
+          const row = [];
+          for (let i = 0; i < fanIn; i++) {
+            row.push((Math.random() * 2 - 1) * scale);
+          }
+          lw.push(row);
+          lb.push((Math.random() * 2 - 1) * 0.2);
+        }
+        m.weights.push(lw);
+        m.biases.push(lb);
+      }
+      evaluateMLPMetrics();
+    }
+
+    function forwardMLP(x1, x2) {
+      const m = appState.mlp;
+      m.activations[0][0] = x1;
+      m.activations[0][1] = x2;
+
+      for (let l = 1; l < m.arch.length; l++) {
+        const isLast = l === m.arch.length - 1;
+        const prev = m.activations[l - 1];
+        const curr = m.activations[l];
+        for (let j = 0; j < curr.length; j++) {
+          let z = m.biases[l - 1][j];
+          for (let i = 0; i < prev.length; i++) {
+            z += m.weights[l - 1][j][i] * prev[i];
+          }
+          curr[j] = isLast
+            ? 1 / (1 + Math.exp(-clamp(z, -15, 15)))
+            : Math.tanh(z);
+        }
+      }
+      return m.activations[m.arch.length - 1][0];
+    }
+
+    function trainMLPEpochs(numEpochs = 5) {
+      const m = appState.mlp;
+      const L = m.arch.length;
+
+      for (let ep = 0; ep < numEpochs; ep++) {
+        for (let idx = 0; idx < m.data.length; idx++) {
+          const sample = m.data[(idx * 7 + m.epoch) % m.data.length];
+          const yHat = forwardMLP(sample.x1, sample.x2);
+
+          // Backpropagation
+          const deltas = m.arch.map(n => new Array(n).fill(0));
+          deltas[L - 1][0] = (yHat - sample.y) * yHat * (1 - yHat);
+
+          for (let l = L - 2; l >= 1; l--) {
+            for (let i = 0; i < m.arch[l]; i++) {
+              let errSum = 0;
+              for (let j = 0; j < m.arch[l + 1]; j++) {
+                errSum += m.weights[l][j][i] * deltas[l + 1][j];
+              }
+              const a = m.activations[l][i];
+              deltas[l][i] = errSum * (1 - a * a); // tanh derivative
+            }
+          }
+
+          for (let l = 1; l < L; l++) {
+            for (let j = 0; j < m.arch[l]; j++) {
+              m.biases[l - 1][j] -= m.lr * deltas[l][j];
+              for (let i = 0; i < m.arch[l - 1]; i++) {
+                m.weights[l - 1][j][i] -= m.lr * deltas[l][j] * m.activations[l - 1][i];
+              }
+            }
+          }
+        }
+        m.epoch++;
+      }
+      evaluateMLPMetrics();
+    }
+
+    function evaluateMLPMetrics() {
+      const m = appState.mlp;
+      let mse = 0;
+      let correct = 0;
+      m.data.forEach(pt => {
+        const pred = forwardMLP(pt.x1, pt.x2);
+        mse += (pred - pt.y) * (pred - pt.y);
+        if ((pred >= 0.5 ? 1 : 0) === pt.y) correct++;
+      });
+      m.loss = mse / m.data.length;
+      m.accuracy = Math.round((correct / m.data.length) * 100);
+    }
+
+    function renderMLPMode() {
+      const m = appState.mlp;
+      const probeOut = forwardMLP(m.probe.x1, m.probe.x2);
+
+      document.getElementById('mlpArchPill').textContent =
+        `${m.arch.join(' → ')} (tanh / sigmoid)`;
+      document.getElementById('mlpDatasetPill').textContent =
+        `${m.dataset} Pattern • Non-Linear`;
+      document.getElementById('mlpTestInfo').textContent =
+        `(${m.probe.x1.toFixed(2)}, ${m.probe.x2.toFixed(2)}) → ŷ = ${probeOut.toFixed(2)}`;
+
+      document.getElementById('metricEpoch').textContent = m.epoch;
+      document.getElementById('metricLoss').textContent = m.loss.toFixed(3);
+      document.getElementById('metricAcc').textContent = `${m.accuracy}%`;
+
+      const activeNode = m.selectedNode || m.hoveredNode;
+      const nodeInfoEl = document.getElementById('mlpNodeInfo');
+      if (activeNode) {
+        const val = m.activations[activeNode.layer][activeNode.index];
+        const layerLabel = activeNode.layer === 0
+          ? 'Input'
+          : activeNode.layer === m.arch.length - 1
+            ? 'Output'
+            : `Hidden L${activeNode.layer}`;
+        nodeInfoEl.textContent = `${layerLabel} #${activeNode.index + 1} (act = ${val.toFixed(2)})`;
+      } else {
+        nodeInfoEl.textContent = 'None (hover any neuron)';
+      }
+
+      drawMLPDiagram();
+      drawMLPPlot();
+    }
+
+    function drawMLPDiagram() {
+      const canvas = document.getElementById('mlpDiagram');
+      const { ctx, width: w, height: h } = setupCanvas(canvas);
+      const m = appState.mlp;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const L = m.arch.length;
+      const padX = Math.max(68, w * 0.14);
+      const padY = 44;
+      const usableW = w - padX * 2;
+      const usableH = h - padY * 2 - 22;
+
+      m.nodeCoords = [];
+      for (let l = 0; l < L; l++) {
+        const count = m.arch[l];
+        const x = padX + (l / (L - 1)) * usableW;
+        const layerPts = [];
+        for (let i = 0; i < count; i++) {
+          const y = padY + ((i + 0.5) / count) * usableH;
+          layerPts.push({ x, y, layer: l, index: i });
+        }
+        m.nodeCoords.push(layerPts);
+      }
+
+      const focus = m.selectedNode || m.hoveredNode;
+
+      // Draw Connections
+      for (let l = 1; l < L; l++) {
+        for (let j = 0; j < m.arch[l]; j++) {
+          for (let i = 0; i < m.arch[l - 1]; i++) {
+            const p1 = m.nodeCoords[l - 1][i];
+            const p2 = m.nodeCoords[l][j];
+            const wt = m.weights[l - 1][j][i];
+            const isHighlighted = focus && (
+              (focus.layer === l && focus.index === j) ||
+              (focus.layer === l - 1 && focus.index === i)
+            );
+
+            ctx.save();
+            ctx.strokeStyle = wt >= 0 ? COLORS.cyan : COLORS.rose;
+            ctx.lineWidth = clamp(0.8 + Math.abs(wt) * 1.4, 0.8, 5);
+            ctx.globalAlpha = focus ? (isHighlighted ? 0.95 : 0.12) : clamp(0.25 + Math.abs(wt) * 0.25, 0.25, 0.85);
+            ctx.beginPath();
+            ctx.moveTo(p1.x, p1.y);
+            ctx.lineTo(p2.x, p2.y);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+      }
+
+      // Layer Headers & Neurons
+      for (let l = 0; l < L; l++) {
+        const headerX = m.nodeCoords[l][0].x;
+        const title = l === 0 ? 'Input' : l === L - 1 ? 'Output' : `Hidden ${l}`;
+        ctx.fillStyle = COLORS.textSecondary;
+        ctx.font = '600 10.5px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText(title, headerX, 22);
+
+        for (let i = 0; i < m.arch[l]; i++) {
+          const pt = m.nodeCoords[l][i];
+          const act = m.activations[l][i];
+          const isFocus = focus && focus.layer === l && focus.index === i;
+          const strokeCol = isFocus ? COLORS.amber : (act >= 0 ? COLORS.cyan : COLORS.rose);
+          const fillCol = l === L - 1
+            ? (act >= 0.5 ? 'rgba(16,185,129,0.25)' : 'rgba(244,63,94,0.25)')
+            : COLORS.bgElevated;
+
+          drawCircleNode(ctx, pt.x, pt.y, 19, fillCol, strokeCol, isFocus ? 3 : 2);
+
+          ctx.fillStyle = COLORS.textPrimary;
+          ctx.font = '700 10.5px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(act.toFixed(2), pt.x, pt.y);
+        }
+      }
+    }
+
+    let mlpPlotTransform = null;
+
+    function drawMLPPlot() {
+      const canvas = document.getElementById('mlpPlot');
+      const { ctx, width: w, height: h } = setupCanvas(canvas);
+      const m = appState.mlp;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 38, padR = 18, padT = 18, padB = 32;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      const toScreenX = (x) => padL + ((x + 1.1) / 2.2) * plotW;
+      const toScreenY = (y) => padT + ((1.1 - y) / 2.2) * plotH;
+      const toDataX = (sx) => clamp(((sx - padL) / plotW) * 2.2 - 1.1, -1.05, 1.05);
+      const toDataY = (sy) => clamp(1.1 - ((sy - padT) / plotH) * 2.2, -1.05, 1.05);
+
+      mlpPlotTransform = { toScreenX, toScreenY, toDataX, toDataY };
+
+      // 1. Non-Linear Heatmap
+      const cols = 44, rows = 36;
+      const cw = plotW / cols, ch = plotH / rows;
+      for (let gx = 0; gx < cols; gx++) {
+        for (let gy = 0; gy < rows; gy++) {
+          const sx = padL + gx * cw;
+          const sy = padT + gy * ch;
+          const dx = toDataX(sx + cw * 0.5);
+          const dy = toDataY(sy + ch * 0.5);
+          const p = forwardMLP(dx, dy);
+
+          if (Math.abs(p - 0.5) < 0.03) {
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.55)';
+          } else if (p >= 0.5) {
+            const alpha = clamp((p - 0.5) * 0.55 + 0.06, 0.06, 0.32);
+            ctx.fillStyle = `rgba(16, 185, 129, ${alpha})`;
+          } else {
+            const alpha = clamp((0.5 - p) * 0.55 + 0.06, 0.06, 0.32);
+            ctx.fillStyle = `rgba(244, 63, 94, ${alpha})`;
+          }
+          ctx.fillRect(sx, sy, cw + 0.5, ch + 0.5);
+        }
+      }
+
+      // Restore current probe activations
+      forwardMLP(m.probe.x1, m.probe.x2);
+
+      // 2. Grid & Axes
+      ctx.strokeStyle = COLORS.gridLine;
+      ctx.lineWidth = 1;
+      [-1, -0.5, 0, 0.5, 1].forEach(v => {
+        const px = toScreenX(v);
+        const py = toScreenY(v);
+        ctx.beginPath();
+        ctx.moveTo(px, padT);
+        ctx.lineTo(px, padT + plotH);
+        ctx.moveTo(padL, py);
+        ctx.lineTo(padL + plotW, py);
+        ctx.stroke();
+      });
+
+      ctx.strokeStyle = COLORS.axisLine;
+      ctx.strokeRect(padL, padT, plotW, plotH);
+
+      // 3. Training Points
+      m.data.forEach(pt => {
+        drawCircleNode(
+          ctx,
+          toScreenX(pt.x1),
+          toScreenY(pt.x2),
+          4.5,
+          pt.y === 1 ? COLORS.emerald : COLORS.rose,
+          COLORS.bgPrimary,
+          1.2
+        );
+      });
+
+      // 4. Probe Marker
+      const px = toScreenX(m.probe.x1);
+      const py = toScreenY(m.probe.x2);
+      drawCircleNode(ctx, px, py, 6.5, COLORS.amber, COLORS.bgPrimary, 2);
+
+      ctx.fillStyle = COLORS.textPrimary;
+      ctx.font = '600 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Feature x₁', padL + plotW * 0.5, h - 6);
+    }
+
+    // ============================================================================
+    // MODE 3: REAL-WORLD STUDENT EXAM CLASSIFIER (STUDY HOURS VS SLEEP HOURS)
+    // ============================================================================
+    function normStudy(hrs) { return (hrs - 10.0) / 10.0; } // [0, 20] -> [-1, 1]
+    function normSleep(hrs) { return (hrs - 6.5) / 3.5; }   // [3, 10] -> [-1, 1]
+
+    function generateStudentCohort() {
+      const samples = [
+        // Balanced / Strong Pass cases (y = 1)
+        [12.0, 7.5, 1], [14.0, 8.0, 1], [15.5, 7.0, 1], [11.0, 8.5, 1],
+        [16.5, 8.0, 1], [13.0, 6.5, 1], [17.5, 7.5, 1], [10.5, 7.5, 1],
+        [14.5, 6.2, 1], [18.5, 8.5, 1], [9.5,  8.5, 1], [12.5, 9.0, 1],
+        [16.0, 6.5, 1], [11.5, 6.8, 1], [15.0, 8.8, 1], [13.5, 7.2, 1],
+        [18.0, 6.8, 1], [10.0, 8.0, 1], [19.0, 7.8, 1], [12.0, 6.2, 1],
+        [14.0, 9.2, 1], [17.0, 9.0, 1],
+
+        // Low Study / Insufficient Prep Fail cases (y = 0)
+        [2.0,  7.0, 0], [3.5,  8.5, 0], [5.0,  6.0, 0], [4.0,  4.5, 0],
+        [6.5,  5.0, 0], [1.5,  5.5, 0], [7.0,  6.5, 0], [3.0,  9.2, 0],
+        [5.5,  8.0, 0], [8.0,  5.2, 0], [2.5,  3.8, 0], [6.0,  7.2, 0],
+        [4.5,  6.8, 0], [7.5,  4.5, 0], [1.0,  8.0, 0], [8.5,  5.8, 0],
+
+        // All-Nighter Burnout Corner: Very high study + severe sleep deprivation -> Fail (y = 0)
+        [17.5, 3.5, 0], [19.0, 3.8, 0], [16.5, 4.0, 0], [18.5, 4.3, 0],
+        [15.5, 3.4, 0], [19.5, 4.5, 0], [14.5, 3.6, 0], [17.0, 4.4, 0]
+      ];
+      return samples.map(([study, sleep, y]) => ({ study, sleep, y }));
+    }
+
+    function initPracticalModel(pretrain = true) {
+      const pr = appState.practical;
+      pr.cohort = generateStudentCohort();
+      pr.epoch = 0;
+
+      const arch = [2, 4, 1];
+      pr.weights = [];
+      pr.biases = [];
+      pr.activations = arch.map(n => new Array(n).fill(0));
+
+      for (let l = 1; l < arch.length; l++) {
+        const fanIn = arch[l - 1];
+        const fanOut = arch[l];
+        const scale = Math.sqrt(2.0 / fanIn);
+        const layerW = [];
+        const layerB = [];
+        for (let j = 0; j < fanOut; j++) {
+          const row = [];
+          for (let i = 0; i < fanIn; i++) {
+            const seed = Math.sin((l * 13 + j * 7 + i * 3) * 1.7);
+            row.push(seed * scale);
+          }
+          layerW.push(row);
+          layerB.push(0.0);
+        }
+        pr.weights.push(layerW);
+        pr.biases.push(layerB);
+      }
+
+      pr.linW = [1.4, 1.0];
+      pr.linB = -0.1;
+
+      if (pretrain) {
+        trainPracticalStep(260);
+      } else {
+        evaluatePracticalCohort();
+      }
+    }
+
+    function forwardPractical(study, sleep) {
+      const pr = appState.practical;
+      const x1 = normStudy(study);
+      const x2 = normSleep(sleep);
+
+      if (pr.modelType === 'linear') {
+        const z = pr.linW[0] * x1 + pr.linW[1] * x2 + pr.linB;
+        const prob = 1 / (1 + Math.exp(-clamp(z * 2.2, -15, 15)));
+        pr.activations[0] = [x1, x2];
+        pr.activations[1] = [0, 0, 0, 0];
+        pr.activations[2] = [prob];
+        return prob;
+      }
+
+      pr.activations[0][0] = x1;
+      pr.activations[0][1] = x2;
+
+      for (let j = 0; j < 4; j++) {
+        const z = pr.biases[0][j] +
+          pr.weights[0][j][0] * x1 +
+          pr.weights[0][j][1] * x2;
+        pr.activations[1][j] = Math.tanh(z);
+      }
+
+      let zOut = pr.biases[1][0];
+      for (let j = 0; j < 4; j++) {
+        zOut += pr.weights[1][0][j] * pr.activations[1][j];
+      }
+      const prob = 1 / (1 + Math.exp(-clamp(zOut, -15, 15)));
+      pr.activations[2][0] = prob;
+      return prob;
+    }
+
+    function trainPracticalStep(epochs = 20) {
+      const pr = appState.practical;
+      const lr = 0.14;
+
+      for (let ep = 0; ep < epochs; ep++) {
+        for (let k = 0; k < pr.cohort.length; k++) {
+          const s = pr.cohort[(k * 5 + pr.epoch) % pr.cohort.length];
+          const x1 = normStudy(s.study);
+          const x2 = normSleep(s.sleep);
+
+          if (pr.modelType === 'linear') {
+            const z = pr.linW[0] * x1 + pr.linW[1] * x2 + pr.linB;
+            const yHat = 1 / (1 + Math.exp(-clamp(z, -15, 15)));
+            const err = yHat - s.y;
+            pr.linW[0] -= lr * err * x1;
+            pr.linW[1] -= lr * err * x2;
+            pr.linB -= lr * err;
+          } else {
+            const h = [0, 0, 0, 0];
+            for (let j = 0; j < 4; j++) {
+              const z = pr.biases[0][j] + pr.weights[0][j][0] * x1 + pr.weights[0][j][1] * x2;
+              h[j] = Math.tanh(z);
+            }
+            let zOut = pr.biases[1][0];
+            for (let j = 0; j < 4; j++) zOut += pr.weights[1][0][j] * h[j];
+            const yHat = 1 / (1 + Math.exp(-clamp(zOut, -15, 15)));
+
+            const dOut = yHat - s.y;
+            pr.biases[1][0] -= lr * dOut;
+            for (let j = 0; j < 4; j++) {
+              const wOld = pr.weights[1][0][j];
+              pr.weights[1][0][j] -= lr * dOut * h[j];
+              const dHidden = dOut * wOld * (1 - h[j] * h[j]);
+              pr.biases[0][j] -= lr * dHidden;
+              pr.weights[0][j][0] -= lr * dHidden * x1;
+              pr.weights[0][j][1] -= lr * dHidden * x2;
+            }
+          }
+        }
+        pr.epoch++;
+      }
+      evaluatePracticalCohort();
+    }
+
+    function evaluatePracticalCohort() {
+      const pr = appState.practical;
+      let correct = 0;
+      for (let i = 0; i < pr.cohort.length; i++) {
+        const s = pr.cohort[i];
+        const p = forwardPractical(s.study, s.sleep);
+        if ((p >= 0.5 ? 1 : 0) === s.y) correct++;
+      }
+      pr.accuracy = Math.round((correct / pr.cohort.length) * 100);
+    }
+
+    function renderPracticalMode() {
+      const pr = appState.practical;
+      const prob = forwardPractical(pr.study, pr.sleep);
+      const pct = Math.round(prob * 100);
+      const isPass = prob >= 0.5;
+
+      const modeName = pr.modelType === 'mlp' ? 'MLP (Non-Linear)' : 'Single Perceptron (Linear)';
+      document.getElementById('pracModelPill').textContent =
+        `${modeName} • ${pr.accuracy}% Cohort Acc`;
+
+      document.getElementById('pracInputChip').textContent =
+        `${pr.study.toFixed(1)}h study • ${pr.sleep.toFixed(1)}h sleep`;
+
+      const predChip = document.getElementById('pracPredChip');
+      predChip.textContent = isPass ? `PASS (${pct}%)` : `FAIL (${pct}%)`;
+      predChip.style.color = isPass ? COLORS.emerald : COLORS.rose;
+
+      const accEl = document.getElementById('pracMetricAcc');
+      accEl.textContent = `${pr.accuracy}%`;
+      accEl.style.color = pr.accuracy >= 90 ? COLORS.emerald : COLORS.amber;
+
+      const probEl = document.getElementById('pracMetricProb');
+      probEl.textContent = `${pct}%`;
+      probEl.style.color = isPass ? COLORS.emerald : COLORS.rose;
+
+      drawPracticalDiagram(prob, isPass);
+      drawPracticalPlot();
+    }
+
+    function drawPracticalDiagram(prob, isPass) {
+      const canvas = document.getElementById('practicalDiagram');
+      const { ctx, width: w, height: h } = setupCanvas(canvas);
+      const pr = appState.practical;
+      const isLinear = pr.modelType === 'linear';
+
+      ctx.clearRect(0, 0, w, h);
+
+      const padX = Math.max(76, w * 0.16);
+      const padY = 46;
+      const usableH = h - padY * 2 - 22;
+
+      const xIn = padX;
+      const xHid = w * 0.50;
+      const xOut = w - padX;
+
+      const inNodes = [
+        { x: xIn, y: padY + usableH * 0.30, label: 'Study (x₁)', raw: `${pr.study.toFixed(1)}h`, norm: pr.activations[0][0] },
+        { x: xIn, y: padY + usableH * 0.70, label: 'Sleep (x₂)', raw: `${pr.sleep.toFixed(1)}h`, norm: pr.activations[0][1] }
+      ];
+
+      const hidNodes = [0, 1, 2, 3].map(i => ({
+        x: xHid,
+        y: padY + ((i + 0.5) / 4) * usableH,
+        act: pr.activations[1][i]
+      }));
+
+      const outNode = { x: xOut, y: padY + usableH * 0.50, prob };
+
+      ctx.font = '600 10.5px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = COLORS.textSecondary;
+      ctx.fillText('Student Features', xIn, 22);
+      ctx.fillText(isLinear ? 'Direct Linear Link' : 'Hidden Layer (4)', xHid, 22);
+      ctx.fillText('Exam Outcome', xOut, 22);
+
+      if (isLinear) {
+        inNodes.forEach((n, idx) => {
+          const weight = pr.linW[idx];
+          const col = weight >= 0 ? COLORS.cyan : COLORS.rose;
+          ctx.save();
+          ctx.strokeStyle = col;
+          ctx.lineWidth = clamp(1.5 + Math.abs(weight) * 2.2, 1.5, 7);
+          ctx.beginPath();
+          ctx.moveTo(n.x + 24, n.y);
+          ctx.lineTo(outNode.x - 30, outNode.y);
+          ctx.stroke();
+
+          const mx = (n.x + outNode.x) * 0.5;
+          const my = (n.y + outNode.y) * 0.5 + (idx === 0 ? -12 : 14);
+          ctx.fillStyle = col;
+          ctx.font = '700 11px monospace';
+          ctx.fillText(`w${idx + 1}=${formatSigned(weight, 2)}`, mx, my);
+          ctx.restore();
+        });
+      } else {
+        for (let j = 0; j < 4; j++) {
+          for (let i = 0; i < 2; i++) {
+            const weight = pr.weights[0][j][i];
+            const mag = Math.abs(weight);
+            ctx.save();
+            ctx.strokeStyle = weight >= 0 ? COLORS.cyan : COLORS.rose;
+            ctx.lineWidth = clamp(0.8 + mag * 1.3, 0.8, 4.5);
+            ctx.globalAlpha = clamp(0.22 + mag * 0.22, 0.22, 0.85);
+            ctx.beginPath();
+            ctx.moveTo(inNodes[i].x + 24, inNodes[i].y);
+            ctx.lineTo(hidNodes[j].x - 20, hidNodes[j].y);
+            ctx.stroke();
+            ctx.restore();
+          }
+        }
+
+        for (let j = 0; j < 4; j++) {
+          const weight = pr.weights[1][0][j];
+          const mag = Math.abs(weight);
+          ctx.save();
+          ctx.strokeStyle = weight >= 0 ? COLORS.cyan : COLORS.rose;
+          ctx.lineWidth = clamp(1.0 + mag * 1.4, 1.0, 5.0);
+          ctx.globalAlpha = clamp(0.28 + mag * 0.24, 0.28, 0.90);
+          ctx.beginPath();
+          ctx.moveTo(hidNodes[j].x + 20, hidNodes[j].y);
+          ctx.lineTo(outNode.x - 30, outNode.y);
+          ctx.stroke();
+          ctx.restore();
+        }
+
+        hidNodes.forEach((hn) => {
+          const col = hn.act >= 0 ? COLORS.cyan : COLORS.rose;
+          const alpha = clamp(Math.abs(hn.act) * 0.35, 0.1, 0.38);
+          const fill = hn.act >= 0 ? `rgba(56,189,248,${alpha})` : `rgba(244,63,94,${alpha})`;
+          drawCircleNode(ctx, hn.x, hn.y, 20, fill, col, 2);
+
+          ctx.fillStyle = COLORS.textPrimary;
+          ctx.font = '700 10.5px monospace';
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'middle';
+          ctx.fillText(hn.act.toFixed(2), hn.x, hn.y);
+        });
+      }
+
+      inNodes.forEach(n => {
+        const col = n.norm >= 0 ? COLORS.cyan : COLORS.rose;
+        drawCircleNode(ctx, n.x, n.y, 24, COLORS.bgElevated, col, 2.5);
+
+        ctx.fillStyle = COLORS.textPrimary;
+        ctx.font = '700 11px monospace';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(n.raw, n.x, n.y);
+
+        ctx.fillStyle = COLORS.textSecondary;
+        ctx.font = '600 11px sans-serif';
+        ctx.fillText(n.label, n.x, n.y - 34);
+      });
+
+      const outCol = isPass ? COLORS.emerald : COLORS.rose;
+      const outFill = isPass ? 'rgba(16,185,129,0.22)' : 'rgba(244,63,94,0.22)';
+      drawCircleNode(ctx, outNode.x, outNode.y, 30, outFill, outCol, 3);
+
+      ctx.fillStyle = COLORS.textPrimary;
+      ctx.font = '700 12px monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${Math.round(prob * 100)}%`, outNode.x, outNode.y - 5);
+
+      ctx.fillStyle = outCol;
+      ctx.font = '700 10px sans-serif';
+      ctx.fillText(isPass ? 'PASS' : 'FAIL', outNode.x, outNode.y + 10);
+    }
+
+    let pracPlotTransform = null;
+
+    function drawPracticalPlot() {
+      const canvas = document.getElementById('practicalPlot');
+      const { ctx, width: w, height: h } = setupCanvas(canvas);
+      const pr = appState.practical;
+
+      ctx.clearRect(0, 0, w, h);
+
+      const padL = 44, padR = 22, padT = 22, padB = 38;
+      const plotW = w - padL - padR;
+      const plotH = h - padT - padB;
+
+      const toScreenX = (study) => padL + (study / 20.0) * plotW;
+      const toScreenY = (sleep) => padT + ((10.0 - sleep) / 7.0) * plotH;
+      const toStudy = (sx) => clamp(((sx - padL) / plotW) * 20.0, 0, 20);
+      const toSleep = (sy) => clamp(10.0 - ((sy - padT) / plotH) * 7.0, 3, 10);
+
+      pracPlotTransform = { toScreenX, toScreenY, toStudy, toSleep };
+
+      // 1. Decision Surface Heatmap
+      const resX = 48, resY = 38;
+      const cellW = plotW / resX;
+      const cellH = plotH / resY;
+
+      for (let gx = 0; gx < resX; gx++) {
+        for (let gy = 0; gy < resY; gy++) {
+          const sx = padL + gx * cellW;
+          const sy = padT + gy * cellH;
+          const st = toStudy(sx + cellW * 0.5);
+          const sl = toSleep(sy + cellH * 0.5);
+          const p = forwardPractical(st, sl);
+
+          if (Math.abs(p - 0.5) < 0.032) {
+            ctx.fillStyle = 'rgba(251, 191, 36, 0.55)';
+          } else if (p >= 0.5) {
+            const alpha = clamp((p - 0.5) * 0.52 + 0.06, 0.06, 0.30);
+            ctx.fillStyle = `rgba(16, 185, 129, ${alpha})`;
+          } else {
+            const alpha = clamp((0.5 - p) * 0.52 + 0.06, 0.06, 0.30);
+            ctx.fillStyle = `rgba(244, 63, 94, ${alpha})`;
+          }
+          ctx.fillRect(sx, sy, cellW + 0.6, cellH + 0.6);
+        }
+      }
+
+      forwardPractical(pr.study, pr.sleep);
+
+      // 2. Gridlines & Axes Labels
+      ctx.strokeStyle = COLORS.gridLine;
+      ctx.lineWidth = 1;
+      for (let st = 0; st <= 20; st += 5) {
+        const px = toScreenX(st);
+        ctx.beginPath();
+        ctx.moveTo(px, padT);
+        ctx.lineTo(px, padT + plotH);
+        ctx.stroke();
+
+        ctx.fillStyle = COLORS.textSecondary;
+        ctx.font = '600 10.5px monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(`${st}h`, px, padT + plotH + 14);
+      }
+
+      for (let sl = 3; sl <= 10; sl += 1) {
+        const py = toScreenY(sl);
+        ctx.beginPath();
+        ctx.moveTo(padL, py);
+        ctx.lineTo(padL + plotW, py);
+        ctx.stroke();
+
+        ctx.fillStyle = COLORS.textSecondary;
+        ctx.font = '600 10.5px monospace';
+        ctx.textAlign = 'right';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(`${sl}h`, padL - 7, py);
+      }
+
+      ctx.fillStyle = COLORS.textPrimary;
+      ctx.font = '600 11px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('Study Hours / Week (x₁)', padL + plotW * 0.5, h - 7);
+
+      ctx.save();
+      ctx.translate(13, padT + plotH * 0.5);
+      ctx.rotate(-Math.PI / 2);
+      ctx.fillText('Sleep Hours / Night (x₂)', 0, 0);
+      ctx.restore();
+
+      ctx.strokeStyle = COLORS.axisLine;
+      ctx.strokeRect(padL, padT, plotW, plotH);
+
+      ctx.fillStyle = 'rgba(244, 63, 94, 0.85)';
+      ctx.font = '700 10px monospace';
+      ctx.textAlign = 'right';
+      ctx.fillText('BURNOUT ZONE', padL + plotW - 8, padT + plotH - 10);
+
+      // 3. Plot Cohort Student Data Points
+      pr.cohort.forEach(s => {
+        const px = toScreenX(s.study);
+        const py = toScreenY(s.sleep);
+        ctx.beginPath();
+        ctx.arc(px, py, 5, 0, Math.PI * 2);
+        ctx.fillStyle = s.y === 1 ? COLORS.emerald : COLORS.rose;
+        ctx.fill();
+        ctx.lineWidth = 1.2;
+        ctx.strokeStyle = COLORS.bgPrimary;
+        ctx.stroke();
+      });
+
+      // 4. Draggable Test Student Marker
+      const tx = toScreenX(pr.study);
+      const ty = toScreenY(pr.sleep);
+
+      ctx.beginPath();
+      ctx.arc(tx, ty, 14, 0, Math.PI * 2);
+      ctx.fillStyle = 'rgba(251, 191, 36, 0.25)';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.arc(tx, ty, 7, 0, Math.PI * 2);
+      ctx.fillStyle = COLORS.amber;
+      ctx.fill();
+      ctx.lineWidth = 2;
+      ctx.strokeStyle = COLORS.bgPrimary;
+      ctx.stroke();
+
+      const tag = `Test (${pr.study.toFixed(1)}h, ${pr.sleep.toFixed(1)}h)`;
+      ctx.font = '700 10.5px monospace';
+      const tw = ctx.measureText(tag).width + 10;
+      const boxX = clamp(tx - tw / 2, padL + 4, padL + plotW - tw - 4);
+      const boxY = ty - 26 < padT + 4 ? ty + 12 : ty - 26;
+
+      ctx.fillStyle = COLORS.bgPrimary;
+      ctx.strokeStyle = COLORS.amber;
+      ctx.lineWidth = 1;
+      roundRect(ctx, boxX, boxY, tw, 17, 4);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = COLORS.amber;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(tag, boxX + tw / 2, boxY + 8.5);
+    }
+
+    // ============================================================================
+    // UI EVENT BINDINGS & INTERACTIVITY
+    // ============================================================================
+    function syncPerceptronSliders() {
+      const p = appState.perceptron;
+      document.getElementById('sliderX1').value = p.x1;
+      document.getElementById('sliderX2').value = p.x2;
+      document.getElementById('sliderW1').value = p.w1;
+      document.getElementById('sliderW2').value = p.w2;
+      document.getElementById('sliderB').value = p.b;
+
+      document.getElementById('valX1').textContent = p.x1.toFixed(2);
+      document.getElementById('valX2').textContent = p.x2.toFixed(2);
+      document.getElementById('valW1').textContent = p.w1.toFixed(2);
+      document.getElementById('valW2').textContent = p.w2.toFixed(2);
+      document.getElementById('valB').textContent = p.b.toFixed(2);
+    }
+
+    function setupEvents() {
+      // Mode Tabs
+      document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const mode = btn.dataset.mode;
+          appState.mode = mode;
+
+          document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+
+          const isP = mode === 'perceptron';
+          const isM = mode === 'mlp';
+          const isPrac = mode === 'practical';
+
+          document.getElementById('workspacePerceptron').classList.toggle('hidden', !isP);
+          document.getElementById('controlsPerceptron').classList.toggle('hidden', !isP);
+          document.getElementById('workspaceMLP').classList.toggle('hidden', !isM);
+          document.getElementById('controlsMLP').classList.toggle('hidden', !isM);
+          document.getElementById('workspacePractical').classList.toggle('hidden', !isPrac);
+          document.getElementById('controlsPractical').classList.toggle('hidden', !isPrac);
+
+          if (isM && appState.mlp.weights.length === 0) {
+            initMLPNetwork();
+          }
+          if (isPrac && appState.practical.cohort.length === 0) {
+            initPracticalModel(true);
+          }
+          renderActiveMode();
+        });
+      });
+
+      // ========================================================================
+      // MODE 1 (SINGLE PERCEPTRON) CONTROLS
+      // ========================================================================
+      ['X1', 'X2', 'W1', 'W2', 'B'].forEach(key => {
+        const lower = key.toLowerCase();
+        document.getElementById(`slider${key}`).addEventListener('input', (e) => {
+          appState.perceptron[lower] = parseFloat(e.target.value);
+          syncPerceptronSliders();
+          renderPerceptronMode();
+        });
+      });
+
+      document.querySelectorAll('#actBtnGroup .pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#actBtnGroup .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          appState.perceptron.activation = btn.dataset.act;
+          renderPerceptronMode();
+        });
+      });
+
+      document.querySelectorAll('#gateBtnGroup .pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#gateBtnGroup .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          const gate = btn.dataset.gate;
+          appState.perceptron.gate = gate;
+
+          if (gate === 'AND') {
+            appState.perceptron.w1 = 1.2;
+            appState.perceptron.w2 = 1.2;
+            appState.perceptron.b = -1.6;
+          } else if (gate === 'OR') {
+            appState.perceptron.w1 = 1.4;
+            appState.perceptron.w2 = 1.4;
+            appState.perceptron.b = -0.6;
+          } else if (gate === 'XOR') {
+            appState.perceptron.w1 = 1.0;
+            appState.perceptron.w2 = 1.0;
+            appState.perceptron.b = -0.5;
+          }
+          syncPerceptronSliders();
+          renderPerceptronMode();
+        });
+      });
+
+      // Drag test point on Perceptron Plot
+      const pPlotCanvas = document.getElementById('perceptronPlot');
+      let draggingPPoint = false;
+      function updatePerceptronDrag(clientX, clientY) {
+        if (!pPlotTransform) return;
+        const rect = pPlotCanvas.getBoundingClientRect();
+        appState.perceptron.x1 = Math.round(pPlotTransform.toDataX(clientX - rect.left) * 20) / 20;
+        appState.perceptron.x2 = Math.round(pPlotTransform.toDataY(clientY - rect.top) * 20) / 20;
+        syncPerceptronSliders();
+        renderPerceptronMode();
+      }
+
+      pPlotCanvas.addEventListener('mousedown', (e) => {
+        draggingPPoint = true;
+        updatePerceptronDrag(e.clientX, e.clientY);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (draggingPPoint && appState.mode === 'perceptron') {
+          updatePerceptronDrag(e.clientX, e.clientY);
+        }
+      });
+      window.addEventListener('mouseup', () => {
+        draggingPPoint = false;
+      });
+
+      pPlotCanvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 0) {
+          e.preventDefault();
+          draggingPPoint = true;
+          updatePerceptronDrag(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      }, { passive: false });
+      pPlotCanvas.addEventListener('touchmove', (e) => {
+        if (draggingPPoint && e.touches.length > 0) {
+          e.preventDefault();
+          updatePerceptronDrag(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      }, { passive: false });
+      pPlotCanvas.addEventListener('touchend', () => {
+        draggingPPoint = false;
+      });
+
+      // ========================================================================
+      // MODE 2 (MULTI-LAYER PERCEPTRON) CONTROLS
+      // ========================================================================
+      document.querySelectorAll('#mlpDatasetGroup .pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#mlpDatasetGroup .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          appState.mlp.dataset = btn.dataset.ds;
+          initMLPNetwork();
+          renderMLPMode();
+        });
+      });
+
+      document.querySelectorAll('#mlpArchGroup .pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#mlpArchGroup .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          appState.mlp.arch = btn.dataset.arch.split(',').map(Number);
+          initMLPNetwork();
+          renderMLPMode();
+        });
+      });
+
+      document.getElementById('sliderLR').addEventListener('input', (e) => {
+        appState.mlp.lr = parseFloat(e.target.value);
+        document.getElementById('valLR').textContent = appState.mlp.lr.toFixed(2);
+      });
+
+      const trainToggleBtn = document.getElementById('btnTrainToggle');
+      trainToggleBtn.addEventListener('click', () => {
+        appState.mlp.isTraining = !appState.mlp.isTraining;
+        if (appState.mlp.isTraining) {
+          trainToggleBtn.innerHTML = '&#10074;&#10074; Pause';
+          trainToggleBtn.classList.add('running');
+        } else {
+          trainToggleBtn.innerHTML = '&#9654; Train';
+          trainToggleBtn.classList.remove('running');
+        }
+      });
+
+      document.getElementById('btnStepEpoch').addEventListener('click', () => {
+        trainMLPEpochs(1);
+        renderMLPMode();
+      });
+
+      document.getElementById('btnResetNet').addEventListener('click', () => {
+        appState.mlp.isTraining = false;
+        trainToggleBtn.innerHTML = '&#9654; Train';
+        trainToggleBtn.classList.remove('running');
+        initMLPNetwork();
+        renderMLPMode();
+      });
+
+      // Hover / Click MLP Neurons to inspect connections
+      const mlpDiagCanvas = document.getElementById('mlpDiagram');
+      function findMLPNodeAt(clientX, clientY) {
+        const rect = mlpDiagCanvas.getBoundingClientRect();
+        const mx = clientX - rect.left;
+        const my = clientY - rect.top;
+        for (let l = 0; l < appState.mlp.nodeCoords.length; l++) {
+          for (let i = 0; i < appState.mlp.nodeCoords[l].length; i++) {
+            const pt = appState.mlp.nodeCoords[l][i];
+            if (Math.hypot(mx - pt.x, my - pt.y) <= 22) {
+              return { layer: l, index: i };
+            }
+          }
+        }
+        return null;
+      }
+
+      mlpDiagCanvas.addEventListener('mousemove', (e) => {
+        const hit = findMLPNodeAt(e.clientX, e.clientY);
+        const prev = appState.mlp.hoveredNode;
+        if ((hit && !prev) || (!hit && prev) || (hit && prev && (hit.layer !== prev.layer || hit.index !== prev.index))) {
+          appState.mlp.hoveredNode = hit;
+          renderMLPMode();
+        }
+      });
+
+      mlpDiagCanvas.addEventListener('click', (e) => {
+        const hit = findMLPNodeAt(e.clientX, e.clientY);
+        if (hit && appState.mlp.selectedNode &&
+            hit.layer === appState.mlp.selectedNode.layer &&
+            hit.index === appState.mlp.selectedNode.index) {
+          appState.mlp.selectedNode = null;
+        } else {
+          appState.mlp.selectedNode = hit;
+        }
+        renderMLPMode();
+      });
+
+      // Probe dragging on MLP Plot
+      const mlpPlotCanvas = document.getElementById('mlpPlot');
+      let draggingProbe = false;
+      function updateMLPProbe(clientX, clientY) {
+        if (!mlpPlotTransform) return;
+        const rect = mlpPlotCanvas.getBoundingClientRect();
+        appState.mlp.probe.x1 = mlpPlotTransform.toDataX(clientX - rect.left);
+        appState.mlp.probe.x2 = mlpPlotTransform.toDataY(clientY - rect.top);
+        renderMLPMode();
+      }
+
+      mlpPlotCanvas.addEventListener('mousedown', (e) => {
+        draggingProbe = true;
+        updateMLPProbe(e.clientX, e.clientY);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (draggingProbe && appState.mode === 'mlp') {
+          updateMLPProbe(e.clientX, e.clientY);
+        }
+      });
+      window.addEventListener('mouseup', () => {
+        draggingProbe = false;
+      });
+
+      // ========================================================================
+      // MODE 3 (REAL-WORLD CLASSIFIER) CONTROLS
+      // ========================================================================
+      function syncPracticalSliders() {
+        const pr = appState.practical;
+        document.getElementById('sliderStudy').value = pr.study;
+        document.getElementById('sliderSleep').value = pr.sleep;
+        document.getElementById('valStudy').textContent = `${pr.study.toFixed(1)} hrs/wk`;
+        document.getElementById('valSleep').textContent = `${pr.sleep.toFixed(1)} hrs/nt`;
+      }
+
+      document.getElementById('sliderStudy').addEventListener('input', (e) => {
+        appState.practical.study = parseFloat(e.target.value);
+        syncPracticalSliders();
+        renderPracticalMode();
+      });
+
+      document.getElementById('sliderSleep').addEventListener('input', (e) => {
+        appState.practical.sleep = parseFloat(e.target.value);
+        syncPracticalSliders();
+        renderPracticalMode();
+      });
+
+      document.querySelectorAll('#pracPersonaGroup .pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#pracPersonaGroup .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          appState.practical.study = parseFloat(btn.dataset.study);
+          appState.practical.sleep = parseFloat(btn.dataset.sleep);
+          syncPracticalSliders();
+          renderPracticalMode();
+        });
+      });
+
+      document.querySelectorAll('#pracModelGroup .pill-btn').forEach(btn => {
+        btn.addEventListener('click', () => {
+          document.querySelectorAll('#pracModelGroup .pill-btn').forEach(b => b.classList.remove('active'));
+          btn.classList.add('active');
+          appState.practical.modelType = btn.dataset.pmodel;
+          evaluatePracticalCohort();
+          renderPracticalMode();
+        });
+      });
+
+      const pracTrainBtn = document.getElementById('btnPracTrain');
+      pracTrainBtn.addEventListener('click', () => {
+        appState.practical.isTraining = !appState.practical.isTraining;
+        if (appState.practical.isTraining) {
+          pracTrainBtn.innerHTML = '&#10074;&#10074; Pause';
+          pracTrainBtn.classList.add('running');
+        } else {
+          pracTrainBtn.innerHTML = '&#9654; Train';
+          pracTrainBtn.classList.remove('running');
+        }
+      });
+
+      document.getElementById('btnPracReset').addEventListener('click', () => {
+        appState.practical.isTraining = false;
+        pracTrainBtn.innerHTML = '&#9654; Train';
+        pracTrainBtn.classList.remove('running');
+        initPracticalModel(false);
+        renderPracticalMode();
+      });
+
+      // Draggable Test Student Marker on Practical Plot
+      const pracPlotCanvas = document.getElementById('practicalPlot');
+      let draggingStudent = false;
+      function updatePracticalDrag(clientX, clientY) {
+        if (!pracPlotTransform) return;
+        const rect = pracPlotCanvas.getBoundingClientRect();
+        const sx = clientX - rect.left;
+        const sy = clientY - rect.top;
+        appState.practical.study = Math.round(pracPlotTransform.toStudy(sx) * 2) / 2;
+        appState.practical.sleep = Math.round(pracPlotTransform.toSleep(sy) * 4) / 4;
+        syncPracticalSliders();
+        renderPracticalMode();
+      }
+
+      pracPlotCanvas.addEventListener('mousedown', (e) => {
+        draggingStudent = true;
+        updatePracticalDrag(e.clientX, e.clientY);
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (draggingStudent && appState.mode === 'practical') {
+          updatePracticalDrag(e.clientX, e.clientY);
+        }
+      });
+      window.addEventListener('mouseup', () => {
+        draggingStudent = false;
+      });
+
+      pracPlotCanvas.addEventListener('touchstart', (e) => {
+        if (e.touches.length > 0) {
+          e.preventDefault();
+          draggingStudent = true;
+          updatePracticalDrag(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      }, { passive: false });
+      pracPlotCanvas.addEventListener('touchmove', (e) => {
+        if (draggingStudent && e.touches.length > 0) {
+          e.preventDefault();
+          updatePracticalDrag(e.touches[0].clientX, e.touches[0].clientY);
+        }
+      }, { passive: false });
+      pracPlotCanvas.addEventListener('touchend', () => {
+        draggingStudent = false;
+      });
+
+      // Responsive Window Resize
+      window.addEventListener('resize', renderActiveMode);
+    }
+
+    function renderActiveMode() {
+      if (appState.mode === 'perceptron') {
+        renderPerceptronMode();
+      } else if (appState.mode === 'mlp') {
+        renderMLPMode();
+      } else {
+        renderPracticalMode();
+      }
+    }
+
+    // Live Training Animation Loop
+    function animationLoop() {
+      if (appState.mode === 'mlp' && appState.mlp.isTraining) {
+        trainMLPEpochs(8);
+        renderMLPMode();
+      } else if (appState.mode === 'practical' && appState.practical.isTraining) {
+        trainPracticalStep(12);
+        renderPracticalMode();
+      }
+      requestAnimationFrame(animationLoop);
+    }
+
+    // Boot Application
+    window.onload = function () {
+      setupEvents();
+      syncPerceptronSliders();
+      initMLPNetwork();
+      renderActiveMode();
+      requestAnimationFrame(animationLoop);
+    };
+  </script>
+</body>
+</html>
